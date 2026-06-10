@@ -29,9 +29,15 @@ export class CommandFileSystemList implements Command {
             allowedValues: Object.values(NodeType),
             help: 'Type of the node to filter by.',
         },
+        recursive: {
+            type: 'boolean',
+            short: 'R',
+            default: false,
+            help: 'List the folder tree recursively.',
+        },
     };
 
-    async action({ sdk, photosSdk, paths, args: [pathString], options: { json, type } }: ActionArgs) {
+    async action({ sdk, photosSdk, paths, args: [pathString], options: { json, type, recursive } }: ActionArgs) {
         const path = paths.getPath(pathString);
 
         const nodeType = type ? Object.entries(NodeType).find(([, value]) => value === type)?.[1] : undefined;
@@ -45,13 +51,13 @@ export class CommandFileSystemList implements Command {
                 await printIterable(rootPaths, json, (item) => console.log(sanitizeTerminalText(item.path)));
                 break;
             case PathType.MyFiles:
-                await this.printChildren(sdk, paths, pathString, { json, nodeType });
+                await this.printChildren(sdk, paths, pathString, { json, nodeType, recursive: Boolean(recursive) });
                 break;
             case PathType.Devices:
                 if (path.fullPath === `/${PathType.Devices}`) {
                     await this.printDevices(sdk, { json });
                 } else {
-                    await this.printChildren(sdk, paths, pathString, { json });
+                    await this.printChildren(sdk, paths, pathString, { json, recursive: Boolean(recursive) });
                 }
                 break;
             case PathType.SharedByMe:
@@ -65,7 +71,7 @@ export class CommandFileSystemList implements Command {
                 if (path.fullPath === `/${PathType.SharedWithMe}`) {
                     await this.printSharedWithMe(sdk, { json });
                 } else {
-                    await this.printChildren(sdk, paths, pathString, { json });
+                    await this.printChildren(sdk, paths, pathString, { json, recursive: Boolean(recursive) });
                 }
                 break;
             case PathType.Trash:
@@ -109,12 +115,32 @@ export class CommandFileSystemList implements Command {
         sdk: ProtonDriveClient,
         paths: Paths,
         pathString: string,
-        options: { json: boolean; nodeType?: NodeType },
+        options: { json: boolean; nodeType?: NodeType; recursive?: boolean },
     ) {
         const parentNode = await paths.getNode(pathString);
         const filterOptions = options.nodeType ? { type: options.nodeType } : undefined;
-        const childrenIterator = sdk.iterateFolderChildren(parentNode, filterOptions);
+        const childrenIterator = options.recursive
+            ? this.iterateRecursive(sdk, parentNode, '', options.nodeType)
+            : sdk.iterateFolderChildren(parentNode, filterOptions);
         await printIterable(childrenIterator, options.json, (node) => this.printNodeHuman(node));
+    }
+    
+    private async *iterateRecursive(
+        sdk: ProtonDriveClient,
+        parentNode: NodeEntity | string,
+        prefix: string,
+        nodeType?: NodeType,
+        depth = 0,
+    ): AsyncGenerator<NodeEntity> {
+        for await (const node of sdk.iterateFolderChildren(parentNode)) {
+            const path = prefix ? `${prefix}/${getName(node)}` : getName(node);
+            if (!nodeType || node.type === nodeType) {
+                yield Object.assign(node, { treePath: path, treeDepth: depth });
+            }
+            if (node.type === NodeType.Folder) {
+                yield* this.iterateRecursive(sdk, node, path, nodeType, depth + 1);
+            }
+        }
     }
 
     private async printSharedNodes(sdk: ProtonDriveClient | ProtonDrivePhotosClient, options: { json: boolean }) {
@@ -138,7 +164,8 @@ export class CommandFileSystemList implements Command {
         const claimedSize = getClaimedSize(node);
         const size = claimedSize ? formatSize(claimedSize) : '-';
         const name = getName(node);
-        console.log(sanitizeTerminalText(`${type}${sharedFlag}${permissionFlag} ${author} ${created} ${size} ${name}`));
+        const depth = (node as { treeDepth?: number }).treeDepth ?? 0;
+        console.log('  '.repeat(depth) + sanitizeTerminalText(`${type}${sharedFlag}${permissionFlag} ${author} ${created} ${size} ${name}`));
     }
 
     private printDeviceHuman(device: Device): void {
