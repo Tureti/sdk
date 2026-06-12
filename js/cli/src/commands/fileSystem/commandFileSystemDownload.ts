@@ -22,6 +22,7 @@ import {
 } from './transferConflictResolver';
 import { createTransferProgress, TransferProgressInterface } from './transferProgress';
 import { DownloadQueue, type QueueItemDirectory, type QueueItemFile } from './transferQueue';
+import { TransferSummary } from './transferSummary';
 
 const SUPPORTED_REMOTE_PATH_TYPES = [PathType.MyFiles, PathType.Devices, PathType.SharedWithMe];
 
@@ -45,6 +46,7 @@ type DownloadContext = {
 export class CommandFileSystemDownload implements Command {
     group = 'filesystem';
     name = 'download';
+    help = 'Downloads files and folders. It prompts for conflict resolution unless a strategy option is set.';
     args = ['path...', 'localFolder'];
     options: Options = {
         'conflict-strategy': {
@@ -97,7 +99,8 @@ export class CommandFileSystemDownload implements Command {
         const downloadRoot = assertValidDownloadRoot(resolvedLocalPaths[0]);
         await ensureDirectory(downloadRoot);
 
-        const progress = json ? undefined : createTransferProgress();
+        const summary = new TransferSummary('download');
+        const progress = json ? undefined : createTransferProgress(() => summary.formatProgressLine());
 
         const conflictResolver = new TransferConflictResolver(logger, {
             fileStrategyChoices: FILE_DOWNLOAD_CONFLICT_STRATEGIES,
@@ -108,15 +111,17 @@ export class CommandFileSystemDownload implements Command {
             onInteractivePromptEnd: () => progress?.resume(),
         });
 
-        const downloadQueue = new DownloadQueue(logger, sdk, {
+        const downloadQueue = new DownloadQueue(logger, summary, sdk, {
             onDirectory: async (item) => {
                 const createdPath = await this.createLocalFolder(ctx, item);
                 if (createdPath) {
                     await ctx.downloadQueue.enqueueRemoteFolderChildren(item.remoteNode, createdPath);
+                    return true;
                 }
+                return false;
             },
             startFile: async (item) => {
-                await this.downloadFile(ctx, item);
+                return await this.downloadFile(ctx, item);
             },
         });
 
@@ -139,6 +144,11 @@ export class CommandFileSystemDownload implements Command {
             await downloadQueue.processQueue();
         } finally {
             progress?.dispose();
+            summary.print({ json });
+        }
+
+        if (summary.failureCount > 0) {
+            throw new ValidationError(`${summary.failureCount} item(s) failed to download`);
         }
     }
 
@@ -182,7 +192,10 @@ export class CommandFileSystemDownload implements Command {
         }
     }
 
-    private async downloadFile(ctx: DownloadContext, item: QueueItemFile<{ remoteNode: NodeEntity }>): Promise<void> {
+    private async downloadFile(
+        ctx: DownloadContext,
+        item: QueueItemFile<{ remoteNode: NodeEntity }>,
+    ): Promise<number | false> {
         const parentPath = path.dirname(item.localPath);
         let targetPath = item.localPath;
         let name = item.baseName;
@@ -200,7 +213,7 @@ export class CommandFileSystemDownload implements Command {
                 const choice = await ctx.conflictResolver.resolve(name, ConflictTargetKind.File);
                 switch (choice) {
                     case ConflictChoice.Skip:
-                        return;
+                        return false;
                     case ConflictChoice.Replace:
                         await unlink(targetPath);
                         break;
@@ -223,8 +236,8 @@ export class CommandFileSystemDownload implements Command {
             };
 
             const downloader = await ctx.sdk.getFileDownloader(item.remoteNode);
-            await this.downloadToPath(ctx, item, downloader, targetPath, verification);
-            return;
+            const fileSize = await this.downloadToPath(ctx, item, downloader, targetPath, verification);
+            return fileSize;
         }
     }
 
@@ -234,7 +247,7 @@ export class CommandFileSystemDownload implements Command {
         downloader: FileDownloader,
         localPath: string,
         verification: { expectedSha1?: string; sha1Verified: boolean; fileSize: number },
-    ): Promise<void> {
+    ): Promise<number> {
         assertDownloadDestination(ctx.downloadRoot, localPath);
 
         const file = Bun.file(localPath);
@@ -269,6 +282,8 @@ export class CommandFileSystemDownload implements Command {
         } finally {
             progressTracker?.onFinished();
         }
+
+        return file.size;
     }
 
     private async verifyDownload(
