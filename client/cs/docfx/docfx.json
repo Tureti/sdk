@@ -1,0 +1,39 @@
+{
+  "$schema": "https://raw.githubusercontent.com/dotnet/docfx/main/schemas/docfx.schema.json",
+  "metadata": [
+    {
+      "src": [
+        {
+          "src": "../sdk/src/Proton.Sdk/bin/Release/net10.0",
+          "files": ["Proton.Sdk.dll"]
+        },
+        {
+          "src": "../sdk/src/Proton.Drive.Sdk/bin/Release/net10.0",
+          "files": ["Proton.Drive.Sdk.dll"]
+        }
+      ],
+      "dest": "api",
+      "includePrivateMembers": false,
+      "disableGitFeatures": true,
+      "namespaceLayout": "flattened",
+      "memberLayout": "separatePages",
+      "enumSortOrder": "declaringOrder"
+    }
+  ],
+  "build": {
+    "content": [
+      {
+        "files": ["api/**.yml"]
+      },
+      {
+        "files": ["toc.yml", "*.md"]
+      }
+    ],
+    "output": "_site",
+    "template": ["default", "modern"],
+    "globalMetadata": {
+      "_appTitle": "Proton Drive SDK (C#)",
+      "_enableSearch": true
+    }
+  }
+}
