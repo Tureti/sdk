@@ -8,6 +8,10 @@
           "files": ["Proton.Sdk.dll"]
         },
         {
+          "src": "../../../incubating/account/cs/src/Proton.Drive.Sdk.Account/bin/Release/net10.0",
+          "files": ["Proton.Drive.Sdk.Account.dll"]
+        },
+        {
           "src": "../sdk/src/Proton.Drive.Sdk/bin/Release/net10.0",
           "files": ["Proton.Drive.Sdk.dll"]
         }
