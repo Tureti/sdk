@@ -1,5 +1,11 @@
 # Changelog
 
+## js/v0.19.1 (2026-06-30)
+
+### Bug Fixes
+- Allow report of file/folder inside a direct shared folder
+
+
 ## js/v0.19.0 (2026-06-25)
 
 ### Features
