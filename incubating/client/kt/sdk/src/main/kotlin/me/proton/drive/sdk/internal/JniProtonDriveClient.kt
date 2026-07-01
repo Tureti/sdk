@@ -10,7 +10,6 @@ import me.proton.drive.sdk.converter.NodeConverter
 import me.proton.drive.sdk.converter.NodeResultListResponseConverter
 import me.proton.drive.sdk.entity.ClientCreateRequest
 import me.proton.drive.sdk.entity.NodeUid
-import me.proton.drive.sdk.extension.LongResponseCallback
 import me.proton.drive.sdk.extension.StringResponseCallback
 import me.proton.drive.sdk.extension.UnitResponseCallback
 import me.proton.drive.sdk.extension.asCallback
@@ -123,12 +122,12 @@ class JniProtonDriveClient internal constructor() : JniBaseProtonDriveSdk() {
             driveClientGetNode = request
         }
 
-    suspend fun enumerateFolderChildren(
+    suspend fun enumerateFolderChildrenNodeUids(
         coroutineScope: CoroutineScope,
         request: ProtonDriveSdk.DriveClientEnumerateFolderChildrenRequest,
         yield: suspend (StringValue) -> Unit,
     ): Unit = executeEnumerate(
-        name = "enumerateFolderChildren",
+        name = "enumerateFolderChildrenNodeUids",
         callback = UnitResponseCallback,
         yield = yield,
         parser = StringValue::parseFrom,

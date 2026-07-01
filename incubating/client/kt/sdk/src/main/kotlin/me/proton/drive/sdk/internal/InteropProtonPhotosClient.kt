@@ -126,10 +126,10 @@ internal class InteropProtonPhotosClient internal constructor(
         ).toEntity()
     }
 
-    override fun enumerateTrash(): Flow<NodeUid> = channelFlow {
-        log(DEBUG, "enumerateTrash")
+    override fun enumerateTrashNodeUids(): Flow<NodeUid> = channelFlow {
+        log(DEBUG, "enumerateTrashNodeUids")
         cancellationCoroutineScope { source ->
-            bridge.enumerateTrash(
+            bridge.enumerateTrashNodeUids(
                 coroutineScope = this@channelFlow,
                 drivePhotosClientEnumerateTrashRequest {
                     clientHandle = handle

@@ -132,12 +132,12 @@ internal class InteropProtonDriveClient internal constructor(
         ).toEntity()
     }
 
-    override fun enumerateFolderChildren(
+    override fun enumerateFolderChildrenNodeUids(
         folderUid: NodeUid,
     ): Flow<NodeUid> = channelFlow {
-        log(DEBUG, "enumerateFolderChildren")
+        log(DEBUG, "enumerateFolderChildrenNodeUids")
         cancellationCoroutineScope { source ->
-            bridge.enumerateFolderChildren(
+            bridge.enumerateFolderChildrenNodeUids(
                 coroutineScope = this@channelFlow,
                 request = driveClientEnumerateFolderChildrenRequest {
                     this.folderUid = folderUid.value
@@ -204,8 +204,8 @@ internal class InteropProtonDriveClient internal constructor(
         ).toEntity()
     }
 
-    override fun enumerateTrash(): Flow<NodeUid> = channelFlow {
-        log(DEBUG, "enumerateTrash")
+    override fun enumerateTrashNodeUids(): Flow<NodeUid> = channelFlow {
+        log(DEBUG, "enumerateTrashNodeUids")
         cancellationCoroutineScope { source ->
             bridge.enumerateTrash(
                 coroutineScope = this@channelFlow,

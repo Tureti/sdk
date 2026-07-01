@@ -16,7 +16,7 @@ interface ProtonDriveClient : ProtonSdkClient {
     suspend fun rename(nodeUid: NodeUid, name: String, mediaType: String? = null)
     suspend fun createFolder(parentFolderUid: NodeUid, name: String, lastModificationTime: Instant? = null): FolderNode
     suspend fun getMyFilesFolder(): FolderNode
-    fun enumerateFolderChildren(folderUid: NodeUid): Flow<NodeUid>
+    fun enumerateFolderChildrenNodeUids(folderUid: NodeUid): Flow<NodeUid>
     suspend fun downloader(request: FileDownloaderRequest): Downloader
     suspend fun uploader(request: FileUploaderRequest): Uploader
     suspend fun uploader(request: FileRevisionUploaderRequest): Uploader

@@ -8,7 +8,6 @@ import me.proton.drive.sdk.converter.NodeConverter
 import me.proton.drive.sdk.converter.NodeResultListResponseConverter
 import me.proton.drive.sdk.entity.ClientCreateRequest
 import me.proton.drive.sdk.entity.NodeUid
-import me.proton.drive.sdk.extension.LongResponseCallback
 import me.proton.drive.sdk.extension.UnitResponseCallback
 import me.proton.drive.sdk.extension.asCallback
 import me.proton.drive.sdk.extension.asNullableCallback
@@ -129,12 +128,12 @@ class JniProtonPhotosClient internal constructor() : JniBaseProtonDriveSdk() {
             drivePhotosClientRestoreNodes = request
         }
 
-    suspend fun enumerateTrash(
+    suspend fun enumerateTrashNodeUids(
         coroutineScope: ProducerScope<NodeUid>,
         request: ProtonDriveSdk.DrivePhotosClientEnumerateTrashRequest,
         yield: suspend (StringValue) -> Unit,
     ): Unit = executeEnumerate(
-            name = "enumerateTrash",
+            name = "enumerateTrashNodeUids",
             callback = UnitResponseCallback,
             yield = yield,
             parser = StringValue::parseFrom,
