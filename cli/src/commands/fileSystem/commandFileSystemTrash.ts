@@ -1,6 +1,6 @@
 import { type ActionArgs, type Command, findName, PathType, printIterable, sanitizeTerminalText } from '../../cli';
 
-const SUPPORTED_PATH_TYPES = [PathType.MyFiles, PathType.Devices, PathType.Photos];
+const SUPPORTED_PATH_TYPES = [PathType.MyFiles, PathType.Devices, PathType.SharedWithMe, PathType.Photos];
 
 export class CommandFileSystemTrash implements Command {
     group = 'filesystem';
