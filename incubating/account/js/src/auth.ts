@@ -1,5 +1,6 @@
 import { AccountApi, AccountApiError } from './accountApi';
 import {
+    DEFAULT_PROTON_ACCOUNT_URL,
     FORK_INITIAL_DELAY_MS,
     FORK_MAX_POLL_TIME_MS,
     FORK_POLL_INTERVAL_MS,
@@ -18,6 +19,7 @@ export class Auth {
         private readonly accountApi: AccountApi,
         private readonly credentials: SessionCredentials,
         private readonly logger: Logger,
+        private readonly accountUrl: string = DEFAULT_PROTON_ACCOUNT_URL,
     ) {
         this.srpModule = new Srp(accountApi);
     }
@@ -118,7 +120,11 @@ export class Auth {
         this.logger.debug('Authenticating via web');
         const forkResponse = await this.accountApi.sessionForksInit();
 
-        const { encryptionKey, signInUrl } = generateSignInUrl(this.authClientId, forkResponse.UserCode);
+        const { encryptionKey, signInUrl } = generateSignInUrl(
+            this.authClientId,
+            forkResponse.UserCode,
+            this.accountUrl,
+        );
 
         await onSignInUrl(signInUrl);
 

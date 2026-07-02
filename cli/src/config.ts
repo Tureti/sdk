@@ -26,6 +26,8 @@ export interface Config {
     sdkVersion?: string;
     /** Base URL for the API. */
     baseUrl: string;
+    /** Base URL for the account (login) web pages. */
+    accountUrl: string;
 
     /** Cache folder for ephemeral files (cryptographic cache, etc.). */
     cacheDir: string;
@@ -59,12 +61,15 @@ export function getConfig(options: InitConfig): Config {
 
     const { cacheDir, appDir, logDir } = defaultDataDirs();
 
+    const baseUrl = process.env.PROTON_DRIVE_BASE_URL || 'drive-api.proton.me';
+
     return {
         clientUidPrefix: options.clientUidPrefix,
         appVersion: options.appVersion,
         authClientId: options.appVersion.startsWith('cli-drive') ? 'cli-drive' : 'external-drive',
         sdkVersion: options.sdkVersion,
-        baseUrl: process.env.PROTON_DRIVE_BASE_URL || 'drive-api.proton.me',
+        baseUrl,
+        accountUrl: accountUrlFromBaseUrl(baseUrl),
         cacheDir,
         appDir,
         logDir,
@@ -75,6 +80,18 @@ export function getConfig(options: InitConfig): Config {
         unsafeSecrets,
         unsafeCache: unsafeSecrets,
     };
+}
+
+/**
+ * Derives the account URL from the API base URL by swapping the `drive-api` host label for `account`,
+ * e.g. `drive-api.houssay.proton.black` -> `account.houssay.proton.black`.
+ * Falls back to `account.proton.black`/`account.proton.me` when the base URL doesn't follow that pattern.
+ */
+function accountUrlFromBaseUrl(baseUrl: string): string {
+    if (baseUrl.startsWith('drive-api.')) {
+        return baseUrl.replace(/^drive-api\./, 'account.');
+    }
+    return baseUrl.endsWith('.black') ? 'account.proton.black' : 'account.proton.me';
 }
 
 function defaultDataDirs(): Pick<Config, 'cacheDir' | 'appDir' | 'logDir'> {

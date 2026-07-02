@@ -24,12 +24,14 @@ export type InitAccountOptions = {
     credentials: SessionCredentials;
     cryptoProxy: CryptoApiInterface;
     logger: Logger;
+    /** Base URL used to build the web sign-in URL. Defaults to `account.proton.me`. */
+    accountUrl?: string;
 };
 
 export async function initAccount(options: InitAccountOptions) {
     const accountApi = new AccountApi(options.apiClient);
     const addresses = new Addresses(accountApi, options.credentials, options.cryptoProxy, options.logger);
-    const auth = new Auth(options.authClientId, accountApi, options.credentials, options.logger);
+    const auth = new Auth(options.authClientId, accountApi, options.credentials, options.logger, options.accountUrl);
     const srp = new Srp(accountApi);
 
     await auth.loadSession();

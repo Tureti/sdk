@@ -1,6 +1,6 @@
 import { createDecipheriv, randomBytes } from 'node:crypto';
 
-const PROTON_ACCOUNT_URL = 'https://account.proton.me';
+export const DEFAULT_PROTON_ACCOUNT_URL = 'account.proton.me';
 const FORK_AAD = Buffer.from('fork', 'utf8');
 const GCM_NONCE_LENGTH = 12;
 const GCM_TAG_LENGTH = 16;
@@ -17,14 +17,17 @@ type ForkPayloadJson = {
 export function generateSignInUrl(
     authClientId: string,
     userCode: string,
+    accountUrl: string = DEFAULT_PROTON_ACCOUNT_URL,
 ): {
     encryptionKey: Buffer;
     signInUrl: string;
 } {
+    const accountUrlWithProtocol = accountUrl.match(/^https?:\/\//) ? accountUrl : `https://${accountUrl}`;
+
     const encryptionKey = randomBytes(32);
     const base64EncodedKey = encryptionKey.toString('base64');
     const payload = `0:${userCode}:${base64EncodedKey}:${authClientId}`;
-    const signInUrl = `${PROTON_ACCOUNT_URL}/desktop/login?app=drive&pv=3#payload=${encodeURIComponent(payload)}`;
+    const signInUrl = `${accountUrlWithProtocol}/desktop/login?app=drive&pv=3#payload=${encodeURIComponent(payload)}`;
 
     return {
         encryptionKey,

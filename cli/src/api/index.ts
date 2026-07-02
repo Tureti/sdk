@@ -39,6 +39,7 @@ export async function initApi(
         credentials,
         cryptoProxy,
         logger,
+        accountUrl: config.accountUrl,
     });
     const addresses = new DriveAccountAdapter(accountAddresses);
     const httpClient = new HTTPClient(apiClient);
