@@ -18,8 +18,14 @@ public class TooManyRequestsException : ProtonApiException
     {
     }
 
-    public TooManyRequestsException(HttpStatusCode statusCode, ApiResponse response, DateTime? retryAfter = null)
-        : base(statusCode, response)
+    public TooManyRequestsException(string message, DateTime? retryAfter, Exception? innerException = null)
+        : base(message, (int)HttpStatusCode.TooManyRequests, ApiResponseCodes.Unknown, innerException)
+    {
+        RetryAfter = retryAfter;
+    }
+
+    public TooManyRequestsException(ApiResponse response, DateTime? retryAfter = null)
+        : base(HttpStatusCode.TooManyRequests, response)
     {
         RetryAfter = retryAfter;
     }

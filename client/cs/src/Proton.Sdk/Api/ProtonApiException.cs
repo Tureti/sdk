@@ -18,8 +18,8 @@ public class ProtonApiException : Exception
     {
     }
 
-    public ProtonApiException(string? message, int? transportCode, int code)
-        : this(message)
+    public ProtonApiException(string? message, int? transportCode, int code, Exception? innerException = null)
+        : this(message, innerException)
     {
         Code = code;
         TransportCode = transportCode;

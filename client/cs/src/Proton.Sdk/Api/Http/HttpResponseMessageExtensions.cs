@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Net.Mime;
 using System.Runtime.Serialization;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
@@ -18,23 +19,34 @@ public static class HttpResponseMessageExtensions
         {
             case HttpStatusCode.UnprocessableEntity or HttpStatusCode.Conflict:
                 {
-                    EnsureNonEmptyContent(responseMessage);
-                    var response = await responseMessage.Content.ReadFromJsonAsync(failureTypeInfo, cancellationToken)
-                        .ConfigureAwait(false) ?? throw new JsonException();
+                    var response = await ReadApiResponseAsync(responseMessage, failureTypeInfo, GetUnknownApiException, cancellationToken)
+                        .ConfigureAwait(false);
 
                     throw new ProtonApiException<TFailure>(responseMessage.StatusCode, response);
                 }
 
             case HttpStatusCode.BadRequest:
                 {
-                    var response = await ReadApiResponseAsync(responseMessage, cancellationToken).ConfigureAwait(false);
+                    var response = await ReadApiResponseAsync(
+                        responseMessage,
+                        ApiSerializerContext.Default.ApiResponse,
+                        GetUnknownApiException,
+                        cancellationToken).ConfigureAwait(false);
+
                     throw new ProtonApiException(responseMessage.StatusCode, response);
                 }
 
             case HttpStatusCode.TooManyRequests:
                 {
-                    var response = await ReadApiResponseAsync(responseMessage, cancellationToken).ConfigureAwait(false);
-                    throw new TooManyRequestsException(responseMessage.StatusCode, response, GetRetryAfter(responseMessage));
+                    var retryAfter = GetRetryAfter(responseMessage);
+
+                    var response = await ReadApiResponseAsync(
+                        responseMessage,
+                        ApiSerializerContext.Default.ApiResponse,
+                        (rm, ex) => new TooManyRequestsException(rm.ReasonPhrase ?? "Too many requests", retryAfter, ex),
+                        cancellationToken).ConfigureAwait(false);
+
+                    throw new TooManyRequestsException(response, retryAfter);
                 }
 
             default:
@@ -43,25 +55,37 @@ public static class HttpResponseMessageExtensions
         }
     }
 
-    private static async Task<ApiResponse> ReadApiResponseAsync(HttpResponseMessage responseMessage, CancellationToken cancellationToken)
+    private static async Task<TFailure> ReadApiResponseAsync<TFailure>(
+        HttpResponseMessage responseMessage,
+        JsonTypeInfo<TFailure> failureTypeInfo,
+        Func<HttpResponseMessage, Exception?, Exception> getUnknownBodyException,
+        CancellationToken cancellationToken)
     {
-        EnsureNonEmptyContent(responseMessage);
-        return await responseMessage.Content.ReadFromJsonAsync(ApiSerializerContext.Default.ApiResponse, cancellationToken)
-            .ConfigureAwait(false) ?? throw new JsonException();
+        if (responseMessage.Content.Headers.ContentType is not { MediaType: MediaTypeNames.Application.Json })
+        {
+            throw getUnknownBodyException.Invoke(responseMessage, null);
+        }
+
+        try
+        {
+            return await responseMessage.Content.ReadFromJsonAsync(failureTypeInfo, cancellationToken)
+                .ConfigureAwait(false) ?? throw new JsonException("Failed to deserialize API response.");
+        }
+        catch (Exception ex)
+        {
+            throw getUnknownBodyException.Invoke(responseMessage, ex);
+        }
     }
 
-    private static void EnsureNonEmptyContent(HttpResponseMessage responseMessage)
+    private static Exception GetUnknownApiException(HttpResponseMessage responseMessage, Exception? innerException)
     {
-        if (responseMessage.Content.Headers.ContentLength is 0)
-        {
-            throw new ProtonApiException(responseMessage.ReasonPhrase, (int)responseMessage.StatusCode, ApiResponseCodes.Unknown);
-        }
+        return new ProtonApiException(responseMessage.ReasonPhrase, (int)responseMessage.StatusCode, ApiResponseCodes.Unknown, innerException);
     }
 
     private static DateTime? GetRetryAfter(HttpResponseMessage responseMessage)
     {
         var retryAfter = responseMessage.Headers.RetryAfter;
-        if (retryAfter == null)
+        if (retryAfter is null)
         {
             return null;
         }
