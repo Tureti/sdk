@@ -26,7 +26,7 @@ public abstract record Node
 
     public required Result<Author, SignatureVerificationError> NameAuthor { get; init; }
 
-    public required Result<Author, SignatureVerificationError> Author { get; init; }
+    public required Result<Author, SignatureVerificationError> KeyAuthor { get; init; }
 
     public required OwnedBy OwnedBy { get; init; }
 

@@ -156,7 +156,7 @@ public struct FolderNode: Sendable {
     public let trashTime: TimeInterval?
     /// Person who named the file
     public let nameAuthor: Author
-    public let author: Author
+    public let keyAuthor: Author
     /// Owner of the node, either email or organization
     public let ownedBy: OwnedBy
     public let errors: [ProtonDriveSDKDriveError]
@@ -167,7 +167,7 @@ public struct FolderNode: Sendable {
                 creationTime: TimeInterval,
                 trashTime: TimeInterval?,
                 nameAuthor: Author,
-                author: Author,
+                keyAuthor: Author,
                 ownedBy: OwnedBy,
                 errors: [ProtonDriveSDKDriveError])
     {
@@ -177,7 +177,7 @@ public struct FolderNode: Sendable {
         self.creationTime = creationTime
         self.trashTime = trashTime
         self.nameAuthor = nameAuthor
-        self.author = author
+        self.keyAuthor = keyAuthor
         self.ownedBy = ownedBy
         self.errors = errors
     }
@@ -192,7 +192,7 @@ public struct FolderNode: Sendable {
         self.creationTime = sdkFolderNode.creationTime.timeIntervalSince1970
         self.trashTime = sdkFolderNode.hasTrashTime ? sdkFolderNode.trashTime.timeIntervalSince1970 : nil
         self.nameAuthor = Author(result: sdkFolderNode.nameAuthor)
-        self.author = Author(result: sdkFolderNode.author)
+        self.keyAuthor = Author(result: sdkFolderNode.keyAuthor)
         self.ownedBy = OwnedBy(result: sdkFolderNode.ownedBy)
         self.errors = sdkFolderNode.errors.map { ProtonDriveSDKDriveError(error: $0) }
     }
@@ -249,7 +249,7 @@ public struct FileNode: Sendable {
     public let trashTime: TimeInterval?
     /// Person who named the file
     public let nameAuthor: Author
-    public let author: Author
+    public let keyAuthor: Author
     /// Owner of the node, either email or organization
     public let ownedBy: OwnedBy
     /// MIME type of the file
@@ -265,7 +265,7 @@ public struct FileNode: Sendable {
                 creationTime: TimeInterval,
                 trashTime: TimeInterval?,
                 nameAuthor: Author,
-                author: Author,
+                keyAuthor: Author,
                 ownedBy: OwnedBy,
                 mediaType: String,
                 totalSizeOnCloudStorage: Int64,
@@ -277,7 +277,7 @@ public struct FileNode: Sendable {
         self.creationTime = creationTime
         self.trashTime = trashTime
         self.nameAuthor = nameAuthor
-        self.author = author
+        self.keyAuthor = keyAuthor
         self.ownedBy = ownedBy
         self.mediaType = mediaType
         self.totalSizeOnCloudStorage = totalSizeOnCloudStorage
@@ -295,7 +295,7 @@ public struct FileNode: Sendable {
         self.creationTime = sdkFileNode.creationTime.timeIntervalSince1970
         self.trashTime = sdkFileNode.trashTime.timeIntervalSince1970
         self.nameAuthor = Author(result: sdkFileNode.nameAuthor)
-        self.author = Author(result: sdkFileNode.author)
+        self.keyAuthor = Author(result: sdkFileNode.keyAuthor)
         self.ownedBy = OwnedBy(result: sdkFileNode.ownedBy)
         self.mediaType = sdkFileNode.mediaType
         self.totalSizeOnCloudStorage = sdkFileNode.totalSizeOnCloudStorage

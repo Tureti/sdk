@@ -119,7 +119,7 @@ internal static class FolderOperations
             ParentUid = parentUid,
             Name = name,
             NameAuthor = author,
-            Author = author,
+            KeyAuthor = author,
             CreationTime = DateTime.UtcNow,
             OwnedBy = parentOwnedBy,
             Errors = [],

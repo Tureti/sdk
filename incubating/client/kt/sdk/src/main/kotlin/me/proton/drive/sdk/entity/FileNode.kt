@@ -11,7 +11,7 @@ data class FileNode(
     override val creationTime: Instant,
     override val trashTime: Instant?,
     override val nameAuthor: Result<Author>,
-    override val author: Result<Author>,
+    override val keyAuthor: Result<Author>,
     override val ownedBy: OwnedBy,
     val activeRevision: FileRevision,
     val totalSizeOnCloudStorage: Long,

@@ -15,7 +15,7 @@ fun ProtonDriveSdk.FolderNode.toEntity() = FolderNode(
     creationTime = creationTime.toInstant(),
     trashTime = trashTimeOrNull?.toInstant(),
     nameAuthor = nameAuthor.toEntity(),
-    author = author.toEntity(),
+    keyAuthor = keyAuthor.toEntity(),
     ownedBy = ownedBy.toEntity(),
     errors = errorsList.map { it.toEntity() },
 )

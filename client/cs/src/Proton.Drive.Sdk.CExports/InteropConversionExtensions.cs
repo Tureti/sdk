@@ -36,7 +36,7 @@ internal static class InteropConversionExtensions
                 CreationTime = folderNode.CreationTime.ToUniversalTime().ToTimestamp(),
                 TrashTime = folderNode.TrashTime?.ToUniversalTime().ToTimestamp(),
                 NameAuthor = folderNode.NameAuthor.ToInterop(),
-                Author = folderNode.Author.ToInterop(),
+                KeyAuthor = folderNode.KeyAuthor.ToInterop(),
                 OwnedBy = folderNode.OwnedBy.ToInterop(),
             };
 
@@ -61,7 +61,7 @@ internal static class InteropConversionExtensions
                 CreationTime = fileNode.CreationTime.ToUniversalTime().ToTimestamp(),
                 TrashTime = fileNode.TrashTime?.ToUniversalTime().ToTimestamp(),
                 NameAuthor = fileNode.NameAuthor.ToInterop(),
-                Author = fileNode.Author.ToInterop(),
+                KeyAuthor = fileNode.KeyAuthor.ToInterop(),
                 TotalSizeOnCloudStorage = fileNode.TotalSizeOnCloudStorage,
                 OwnedBy = fileNode.OwnedBy.ToInterop(),
             };

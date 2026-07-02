@@ -10,7 +10,7 @@ sealed interface Node {
     val creationTime: Instant
     val trashTime: Instant?
     val nameAuthor: Result<Author>
-    val author: Result<Author>
+    val keyAuthor: Result<Author>
     val ownedBy: OwnedBy
     val errors: List<DriveError>
 }
