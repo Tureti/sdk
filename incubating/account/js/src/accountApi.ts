@@ -179,6 +179,21 @@ export class AccountApi {
         }
     }
 
+    async settings(): Promise<
+        CorePaths['/core/{_version}/settings']['get']['responses']['200']['content']['application/json']
+    > {
+        try {
+            const response = await this.apiClient.authenticatedRequest
+                .get<
+                    CorePaths['/core/{_version}/settings']['get']['responses']['200']['content']['application/json']
+                >(`${this.apiClient.baseUrlWithProtocol}/core/v4/settings`)
+                .json();
+            return response;
+        } catch (error: unknown) {
+            throw await makeAccountApiError(error);
+        }
+    }
+
     async users(): Promise<
         CorePaths['/core/{_version}/users']['get']['responses']['200']['content']['application/json']
     > {

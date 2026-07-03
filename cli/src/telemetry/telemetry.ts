@@ -43,7 +43,7 @@ export function initTelemetry(config: Config) {
     return {
         telemetry,
         metrics: metricsHandler as CliMetrics,
-        initMetrics: (apiClient: ApiClient, userPlan: UserPlan) => {
+        enableMetrics: (apiClient: ApiClient, userPlan: UserPlan) => {
             metricsHandler?.init(apiClient, userPlan);
         },
         flush: async () => {

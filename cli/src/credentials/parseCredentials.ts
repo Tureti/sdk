@@ -14,7 +14,8 @@ export function parseStoredSnapshot(raw: string | null): Credentials | null {
             typeof session.session.uid !== 'string' ||
             !session.session?.accessToken ||
             typeof session.session.accessToken !== 'string' ||
-            (session.session?.refreshToken && typeof session.session.refreshToken !== 'string')
+            (session.session?.refreshToken && typeof session.session.refreshToken !== 'string') ||
+            (session.telemetryEnabled !== undefined && typeof session.telemetryEnabled !== 'boolean')
         ) {
             return null;
         }
@@ -26,6 +27,7 @@ export function parseStoredSnapshot(raw: string | null): Credentials | null {
                 accessToken: session.session.accessToken,
                 refreshToken: session.session.refreshToken,
             },
+            telemetryEnabled: session.telemetryEnabled,
         };
     } catch {
         return null;

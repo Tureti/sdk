@@ -6,6 +6,10 @@ export type Credentials = {
     cachePassword?: string;
     userKeyPassword: string;
     session: SessionInfo;
+    // TODO: Once we have Account SDK, use that over storing with the credentials.
+    // This is simplification to avoid too many changes that would be fragile and
+    // removed later anyway.
+    telemetryEnabled?: boolean;
 };
 
 export interface CredentialsStore {

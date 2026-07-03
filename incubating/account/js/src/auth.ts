@@ -11,6 +11,7 @@ import type { Logger } from './logger';
 import type { SessionCredentials } from './sessionCredentials';
 import { sleepMs } from './sleep';
 import { Srp } from './srp';
+import { fetchTelemetryEnabled } from './telemetryPreference';
 
 export class Auth {
     private readonly srpModule: Srp;
@@ -91,6 +92,8 @@ export class Auth {
 
         await this.credentials.setUserKeyPassword(userKeyPassword);
 
+        await this.loadTelemetryPreference();
+
         return {
             uid: authResponse.UID,
             accessToken: authResponse.AccessToken,
@@ -164,11 +167,19 @@ export class Auth {
                 refreshToken: response.RefreshToken,
             });
 
+            await this.loadTelemetryPreference();
+
             return {
                 uid: response.UID,
                 accessToken: response.AccessToken,
                 refreshToken: response.RefreshToken,
             };
         }
+    }
+
+    private async loadTelemetryPreference(): Promise<void> {
+        const telemetryEnabled = await fetchTelemetryEnabled(this.accountApi, this.logger);
+        this.logger.debug(`User telemetry preference: ${telemetryEnabled}`);
+        await this.credentials.setTelemetryEnabled(telemetryEnabled);
     }
 }

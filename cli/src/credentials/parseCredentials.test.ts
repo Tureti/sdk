@@ -28,6 +28,7 @@ describe('parseStoredSnapshot', () => {
                 accessToken: 'access-token',
                 refreshToken: undefined,
             },
+            telemetryEnabled: undefined,
         });
     });
 
@@ -48,6 +49,20 @@ describe('parseStoredSnapshot', () => {
                 accessToken: 'access-token',
                 refreshToken: 'refresh',
             },
+            telemetryEnabled: undefined,
+        });
+    });
+
+    it('parses telemetryEnabled when present', () => {
+        expect(parseStoredSnapshot(validSnapshot({ telemetryEnabled: true }))).toEqual({
+            cachePassword: undefined,
+            userKeyPassword: 'user-key-pass',
+            session: {
+                uid: 'uid-1',
+                accessToken: 'access-token',
+                refreshToken: undefined,
+            },
+            telemetryEnabled: true,
         });
     });
 

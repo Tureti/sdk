@@ -10,6 +10,7 @@ export class Credentials implements SessionCredentials {
     private cachePassword?: string;
     private userKeyPassword?: string;
     private sessionInfo?: SessionInfo;
+    private telemetryEnabled?: boolean;
 
     private readonly sessionInfoChangedCallbacks = new Set<() => void>();
 
@@ -24,6 +25,13 @@ export class Credentials implements SessionCredentials {
 
     isLoggedIn(): boolean {
         return !!this.userKeyPassword && !!this.sessionInfo;
+    }
+
+    isTelemetryEnabled(): boolean {
+        if (!this.isLoggedIn()) {
+            return false;
+        }
+        return this.telemetryEnabled ?? false;
     }
 
     getUserKeyPassword(): string | undefined {
@@ -59,6 +67,7 @@ export class Credentials implements SessionCredentials {
         this.cachePassword = raw.cachePassword;
         this.userKeyPassword = raw.userKeyPassword;
         this.sessionInfo = raw.session;
+        this.telemetryEnabled = raw.telemetryEnabled;
         this.notifySessionInfoChanged();
     }
 
@@ -74,10 +83,16 @@ export class Credentials implements SessionCredentials {
         this.notifySessionInfoChanged();
     }
 
+    async setTelemetryEnabled(enabled: boolean): Promise<void> {
+        this.telemetryEnabled = enabled;
+        await this.persistCredentials();
+    }
+
     async signOut(): Promise<void> {
         this.logger.debug(`Signing out`);
         this.userKeyPassword = undefined;
         this.sessionInfo = undefined;
+        this.telemetryEnabled = undefined;
         await this.store.remove();
         this.notifySessionInfoChanged();
     }
@@ -90,6 +105,7 @@ export class Credentials implements SessionCredentials {
             cachePassword: this.cachePassword,
             userKeyPassword: this.userKeyPassword,
             session: this.sessionInfo,
+            telemetryEnabled: this.telemetryEnabled,
         });
     }
 

@@ -14,7 +14,7 @@ import { getOrGenerateClientUid } from './clientUid';
 import { getConfig, InitConfig } from './config';
 import { initCredentials } from './credentials';
 import { Manager, NoEventsProvider, PersistedEventsProvider } from './events';
-import { initTelemetry } from './telemetry';
+import { disableSentry, initTelemetry } from './telemetry';
 
 export async function init(configOptions: InitConfig) {
     const config = getConfig(configOptions);
@@ -24,20 +24,24 @@ export async function init(configOptions: InitConfig) {
         mkdir(config.logDir, { recursive: true }),
     ]);
 
-    const { telemetry, metrics, initMetrics, flush: flushTelemetry } = initTelemetry(config);
+    const { telemetry, metrics, enableMetrics, flush: flushTelemetry } = initTelemetry(config);
     const logger = telemetry.getLogger('cli');
 
     const openPGPCryptoModule = initOpenPGPCryptoModule();
     const credentials = initCredentials(config, logger);
-    const { auth, addresses, srp, httpClient, apiClient } = await initApi(
-        config,
-        credentials,
-        logger,
-        CryptoProxy,
-    );
+    const { auth, addresses, srp, httpClient, apiClient } = await initApi(config, credentials, logger, CryptoProxy);
 
-    // TODO: Once we have Account SDK, get the user plan from the auth object.
-    initMetrics(apiClient, 'unknown');
+    // Sentry is enabled from the start to collect crashes before any user
+    // operation is performed to avoid going blind in case of a hard crash.
+    // Once the core application is running and the telemetry preference is
+    // known, the metrics are enabled or disabled accordingly.
+    logger.debug(`Telemetry enabled: build=${configOptions.enableMetrics}, user=${credentials.isTelemetryEnabled()}`);
+    if (credentials.isTelemetryEnabled()) {
+        // TODO: Once we have Account SDK, get the user plan from the auth object.
+        enableMetrics(apiClient, 'unknown');
+    } else {
+        disableSentry();
+    }
 
     const clientUid = await getOrGenerateClientUid(config, logger);
     const caches = createCaches(config, credentials, logger);

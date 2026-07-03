@@ -15,9 +15,11 @@ export interface SessionCredentials {
     on(event: 'sessionInfoChanged', callback: () => void): void;
 
     isLoggedIn(): boolean;
+    isTelemetryEnabled(): boolean;
     getUserKeyPassword(): string | undefined;
     load(): Promise<void>;
     setUserKeyPassword(userKeyPassword: string): Promise<void>;
     setSessionInfo(info: SessionInfo): Promise<void>;
+    setTelemetryEnabled(enabled: boolean): Promise<void>;
     signOut(): Promise<void>;
 }

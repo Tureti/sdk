@@ -31,6 +31,11 @@ export function initSentry(options: { dsn?: string; appVersion: string; sdkVersi
     });
 }
 
+export function disableSentry() {
+    sentryEnabled = false;
+    void Sentry.close();
+}
+
 function scrubErrorEventForLocalPii(event: ErrorEvent): ErrorEvent {
     if (event.message) {
         event.message = scrubPathsInString(event.message);
