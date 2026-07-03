@@ -544,7 +544,7 @@ public struct Device: Sendable {
     }
 }
 
-public struct TrashNodeResult: Sendable {
+public struct NodeResult: Sendable {
     public let nodeUid: SDKNodeUid
     public let error: ProtonDriveSDKError?
 
@@ -552,7 +552,15 @@ public struct TrashNodeResult: Sendable {
         self.nodeUid = nodeUid
         self.error = error
     }
+
+    init?(sdkNodeResult: Proton_Drive_Sdk_NodeResultPair) {
+        guard let nodeUid = SDKNodeUid(sdkCompatibleIdentifier: sdkNodeResult.nodeUid) else { return nil }
+        self.nodeUid = nodeUid
+        self.error = sdkNodeResult.hasError ? ProtonDriveSDKError(protoError: sdkNodeResult.error) : nil
+    }
 }
+
+public typealias TrashNodeResult = NodeResult
 
 /// Callback for progress updates
 public typealias ProgressCallback = @Sendable (FileOperationProgress) -> Void
@@ -577,6 +585,9 @@ public struct FileOperationProgress {
         self.bytesTotal = bytesTotal
     }
 }
+
+/// Callback for node UID enumeration updates
+public typealias NodeUidCallback = @Sendable (Result<SDKNodeUid, Error>) -> Void
 
 /// Callback for thumbnail updates
 public typealias ThumbnailCallback = @Sendable (Result<ThumbnailDataWithId?, Error>) -> Void

@@ -25,7 +25,15 @@ public actor ProtonDriveClient: Sendable, ProtonSDKClient {
         case createFolder(UUID)
         case rename(UUID)
         case getAvailableName(UUID)
-        case trash(UUID)
+        case getNode(UUID)
+        case getMyFilesRootFolder(UUID)
+        case enumerateFolderChildren(UUID)
+        case trashNode(UUID)
+        case deleteNode(UUID)
+        case restoreNode(UUID)
+        case enumerateTrash(UUID)
+        case emptyTrash(UUID)
+        case enumerateDevices(UUID)
         case createDevice(UUID)
         case renameDevice(UUID)
         case deleteDevice(UUID)
@@ -35,7 +43,15 @@ public actor ProtonDriveClient: Sendable, ProtonSDKClient {
             case .createFolder: return "createFolder"
             case .rename: return "rename"
             case .getAvailableName: return "getAvailableName"
-            case .trash: return "trash"
+            case .getNode: return "getNode"
+            case .getMyFilesRootFolder: return "getMyFilesRootFolder"
+            case .enumerateFolderChildren: return "enumerateFolderChildren"
+            case .trashNode: return "trashNode"
+            case .deleteNode: return "deleteNode"
+            case .restoreNode: return "restoreNode"
+            case .enumerateTrash: return "enumerateTrash"
+            case .emptyTrash: return "emptyTrash"
+            case .enumerateDevices: return "enumerateDevices"
             case .createDevice: return "createDevice"
             case .renameDevice: return "renameDevice"
             case .deleteDevice: return "deleteDevice"
@@ -116,6 +132,82 @@ public actor ProtonDriveClient: Sendable, ProtonSDKClient {
         self.thumbnailsManager = DownloadThumbnailsManager(clientHandle: clientHandle, logger: logger)
     }
 
+    static func unbox(
+        callbackPointer: Int, releaseBox: () -> Void,
+        weakDriveClient: WeakReference<ProtonDriveClient>
+    ) -> ProtonDriveClient? {
+        guard let driveClient = weakDriveClient.value else {
+            releaseBox()
+            let message = "callback called after the proton client object was deallocated"
+            SDKResponseHandler.sendInteropErrorToSDK(message: message,
+                                                     callbackPointer: callbackPointer,
+                                                     assert: false)
+            return nil
+        }
+        return driveClient
+    }
+
+    public func downloadThumbnails(
+        fileUids: [SDKNodeUid],
+        type: ThumbnailData.ThumbnailType,
+        cancellationToken: UUID,
+        onThumbnailDownloaded: @escaping ThumbnailCallback
+    ) async throws {
+        try await thumbnailsManager.downloadThumbnails(
+            fileUids: fileUids,
+            type: type,
+            cancellationToken: cancellationToken,
+            onThumbnailDownloaded: onThumbnailDownloaded
+        )
+    }
+
+    deinit {
+        CallbackHandleRegistry.shared.removeAll(ownedBy: sdkClientProvider)
+        guard clientHandle != 0 else { return }
+        Self.freeProtonDriveClient(Int64(clientHandle), logger)
+    }
+
+    private func cancelOperation(identifier: OperationIdentifier) async throws {
+        guard let cancellationToken = activeOperations[identifier] else {
+            throw ProtonDriveSDKError(interopError: .noCancellationTokenForIdentifier(operation: identifier.operationName))
+        }
+
+        try await cancellationToken.cancel()
+
+        activeOperations[identifier] = nil
+        cancellationToken.free()
+    }
+
+    private func createCancellationTokenSource(_ operationIdentifier: OperationIdentifier, _ logger: Logger) async throws -> CancellationTokenSource {
+        let cancellationTokenSource = try await CancellationTokenSource(logger: logger)
+        activeOperations[operationIdentifier] = cancellationTokenSource
+        return cancellationTokenSource
+    }
+
+    private func freeCancellationTokenSourceIfNeeded(identifier: OperationIdentifier) {
+        guard let cancellationTokenSource = activeOperations[identifier] else { return }
+        activeOperations[identifier] = nil
+        cancellationTokenSource.free()
+    }
+
+    private static func freeProtonDriveClient(_ clientHandle: Int64, _ logger: Logger?) {
+        Task {
+            let freeRequest = Proton_Drive_Sdk_DriveClientFreeRequest.with {
+                $0.clientHandle = clientHandle
+            }
+            do {
+                try await SDKRequestHandler.send(freeRequest, logger: logger) as Void
+            } catch {
+                // If the request to free the client failed, we have a memory leak, but not much else can be done.
+                logger?.error("Proton_Drive_Sdk_DriveClientFreeRequest failed: \(error)",
+                              category: "ProtonDriveClient.freeProtonDriveClient")
+            }
+        }
+    }
+}
+
+// MARK: - Download file
+extension ProtonDriveClient {
     /// Convenience API for when you don't need a more granular control over the download (pause, resume etc.).
     /// Returns `nil` in case of successful completed download.
     /// Returns `VerificationIssue` object if the download completed, but could not be verified.
@@ -153,10 +245,6 @@ public actor ProtonDriveClient: Sendable, ProtonSDKClient {
         )
     }
 
-    public func cancelDownload(cancellationToken: UUID) async throws {
-        try await downloadsManager.cancelDownload(with: cancellationToken)
-    }
-
     /// Downloads a file to a seekable output stream with support for pause/resume.
     /// Use this method when you need pause/resume functionality with proper stream seeking.
     /// - Parameters:
@@ -179,6 +267,13 @@ public actor ProtonDriveClient: Sendable, ProtonSDKClient {
         )
     }
 
+    public func cancelDownload(cancellationToken: UUID) async throws {
+        try await downloadsManager.cancelDownload(with: cancellationToken)
+    }
+}
+
+// MARK: - Upload file
+extension ProtonDriveClient {
     /// Convenience API for when you don't need a more granular control over the upload (pause, resume etc.)
     public func uploadFile(
         parentFolderUid: SDKNodeUid,
@@ -309,79 +404,6 @@ public actor ProtonDriveClient: Sendable, ProtonSDKClient {
     public func cancelUpload(cancellationToken: UUID) async throws {
         try await uploadsManager.cancelUpload(with: cancellationToken)
     }
-
-    static func unbox(
-        callbackPointer: Int, releaseBox: () -> Void,
-        weakDriveClient: WeakReference<ProtonDriveClient>
-    ) -> ProtonDriveClient? {
-        guard let driveClient = weakDriveClient.value else {
-            releaseBox()
-            let message = "callback called after the proton client object was deallocated"
-            SDKResponseHandler.sendInteropErrorToSDK(message: message,
-                                                     callbackPointer: callbackPointer,
-                                                     assert: false)
-            return nil
-        }
-        return driveClient
-    }
-
-    public func downloadThumbnails(
-        fileUids: [SDKNodeUid],
-        type: ThumbnailData.ThumbnailType,
-        cancellationToken: UUID,
-        onThumbnailDownloaded: @escaping ThumbnailCallback
-    ) async throws {
-        try await thumbnailsManager.downloadThumbnails(
-            fileUids: fileUids,
-            type: type,
-            cancellationToken: cancellationToken,
-            onThumbnailDownloaded: onThumbnailDownloaded
-        )
-    }
-
-    deinit {
-        CallbackHandleRegistry.shared.removeAll(ownedBy: sdkClientProvider)
-        guard clientHandle != 0 else { return }
-        Self.freeProtonDriveClient(Int64(clientHandle), logger)
-    }
-
-    private func cancelOperation(identifier: OperationIdentifier) async throws {
-        guard let cancellationToken = activeOperations[identifier] else {
-            throw ProtonDriveSDKError(interopError: .noCancellationTokenForIdentifier(operation: identifier.operationName))
-        }
-
-        try await cancellationToken.cancel()
-
-        activeOperations[identifier] = nil
-        cancellationToken.free()
-    }
-
-    private func createCancellationTokenSource(_ operationIdentifier: OperationIdentifier, _ logger: Logger) async throws -> CancellationTokenSource {
-        let cancellationTokenSource = try await CancellationTokenSource(logger: logger)
-        activeOperations[operationIdentifier] = cancellationTokenSource
-        return cancellationTokenSource
-    }
-
-    private func freeCancellationTokenSourceIfNeeded(identifier: OperationIdentifier) {
-        guard let cancellationTokenSource = activeOperations[identifier] else { return }
-        activeOperations[identifier] = nil
-        cancellationTokenSource.free()
-    }
-
-    private static func freeProtonDriveClient(_ clientHandle: Int64, _ logger: Logger?) {
-        Task {
-            let freeRequest = Proton_Drive_Sdk_DriveClientFreeRequest.with {
-                $0.clientHandle = clientHandle
-            }
-            do {
-                try await SDKRequestHandler.send(freeRequest, logger: logger) as Void
-            } catch {
-                // If the request to free the client failed, we have a memory leak, but not much else can be done.
-                logger?.error("Proton_Drive_Sdk_DriveClientFreeRequest failed: \(error)",
-                              category: "ProtonDriveClient.freeProtonDriveClient")
-            }
-        }
-    }
 }
 
 // MARK: - Node action
@@ -447,6 +469,80 @@ extension ProtonDriveClient {
         try await cancelOperation(identifier: .getAvailableName(cancellationToken))
     }
 
+    public func getMyFilesRootFolder(cancellationToken: UUID) async throws -> FolderNode {
+        let cancellationTokenSource = try await createCancellationTokenSource(.getMyFilesRootFolder(cancellationToken), logger)
+        defer {
+            freeCancellationTokenSourceIfNeeded(identifier: .getMyFilesRootFolder(cancellationToken))
+        }
+
+        let getMyFilesFolderRequest = Proton_Drive_Sdk_DriveClientGetMyFilesFolderRequest.with {
+            $0.clientHandle = Int64(clientHandle)
+            $0.cancellationTokenSourceHandle = Int64(cancellationTokenSource.handle)
+        }
+
+        let sdkNode: Proton_Drive_Sdk_Node = try await SDKRequestHandler.send(getMyFilesFolderRequest, logger: logger)
+        guard case .folder(let sdkFolderNode) = sdkNode.node else {
+            throw ProtonDriveSDKError(interopError: .wrongSDKResponse(message: "getMyFilesRootFolder expected FolderNode, got \(sdkNode.node as Any)"))
+        }
+        return try FolderNode(sdkFolderNode: sdkFolderNode)
+    }
+
+    public func cancelGetMyFilesRootFolder(cancellationToken: UUID) async throws {
+        try await cancelOperation(identifier: .getMyFilesRootFolder(cancellationToken))
+    }
+
+    public func getNode(nodeUid: SDKNodeUid, cancellationToken: UUID) async throws -> DriveNode? {
+        let cancellationTokenSource = try await createCancellationTokenSource(.getNode(cancellationToken), logger)
+        defer {
+            freeCancellationTokenSourceIfNeeded(identifier: .getNode(cancellationToken))
+        }
+
+        let getNodeRequest = Proton_Drive_Sdk_DriveClientGetNodeRequest.with {
+            $0.clientHandle = Int64(clientHandle)
+            $0.nodeUid = nodeUid.sdkCompatibleIdentifier
+            $0.cancellationTokenSourceHandle = Int64(cancellationTokenSource.handle)
+        }
+
+        let sdkNode: Proton_Drive_Sdk_Node? = try await SDKRequestHandler.send(getNodeRequest, logger: logger)
+        guard let sdkNode else { return nil }
+        return try DriveNode(sdkNode: sdkNode)
+    }
+
+    public func cancelGetNode(cancellationToken: UUID) async throws {
+        try await cancelOperation(identifier: .getNode(cancellationToken))
+    }
+
+    public func enumerateFolderChildrenNodeUids(
+        folderUid: SDKNodeUid,
+        cancellationToken: UUID,
+        onNodeUidEnumerated: @escaping NodeUidCallback
+    ) async throws {
+        let cancellationTokenSource = try await createCancellationTokenSource(.enumerateFolderChildren(cancellationToken), logger)
+        defer {
+            freeCancellationTokenSourceIfNeeded(identifier: .enumerateFolderChildren(cancellationToken))
+        }
+
+        let callbackState = NodeUidEnumerationCallbackWrapper(callback: onNodeUidEnumerated)
+        let request = Proton_Drive_Sdk_DriveClientEnumerateFolderChildrenRequest.with {
+            $0.clientHandle = Int64(clientHandle)
+            $0.folderUid = folderUid.sdkCompatibleIdentifier
+            $0.yieldAction = Int64(ObjectHandle(callback: cNodeUidEnumerationCallback))
+            $0.cancellationTokenSourceHandle = Int64(cancellationTokenSource.handle)
+        }
+
+        let _: Void = try await SDKRequestHandler.send(
+            request,
+            state: WeakReference(value: callbackState),
+            scope: .ownerManaged,
+            owner: callbackState,
+            logger: logger
+        )
+    }
+
+    public func cancelEnumerateFolderChildren(cancellationToken: UUID) async throws {
+        try await cancelOperation(identifier: .enumerateFolderChildren(cancellationToken))
+    }
+
     public func rename(nodeUid: SDKNodeUid, newName: String, newMediaType: String?, cancellationToken: UUID) async throws {
         let cancellationTokenSource = try await createCancellationTokenSource(.rename(cancellationToken), logger)
         defer {
@@ -470,10 +566,14 @@ extension ProtonDriveClient {
         try await cancelOperation(identifier: .rename(cancellationToken))
     }
 
+}
+
+// MARK: - Trash 
+extension ProtonDriveClient {
     public func trash(nodes: [SDKNodeUid], cancellationToken: UUID) async throws -> [TrashNodeResult] {
-        let cancellationTokenSource = try await createCancellationTokenSource(.trash(cancellationToken), logger)
+        let cancellationTokenSource = try await createCancellationTokenSource(.trashNode(cancellationToken), logger)
         defer {
-            freeCancellationTokenSourceIfNeeded(identifier: .trash(cancellationToken))
+            freeCancellationTokenSourceIfNeeded(identifier: .trashNode(cancellationToken))
         }
 
         let cancellationHandle = cancellationTokenSource.handle
@@ -483,16 +583,98 @@ extension ProtonDriveClient {
             $0.cancellationTokenSourceHandle = Int64(cancellationHandle)
         }
         let result: Proton_Drive_Sdk_NodeResultListResponse = try await SDKRequestHandler.send(trashRequest, logger: logger)
-        let results: [TrashNodeResult] = result.results.compactMap { result in
-            guard let id = SDKNodeUid(sdkCompatibleIdentifier: result.nodeUid) else { return nil }
-            let error: ProtonDriveSDKError? = result.hasError ? ProtonDriveSDKError(protoError: result.error) : nil
-            return TrashNodeResult(nodeUid: id, error: error)
-        }
-        return results
+        return result.results.compactMap { TrashNodeResult(sdkNodeResult: $0) }
     }
 
     public func cancelTrash(cancellationToken: UUID) async throws {
-        try await cancelOperation(identifier: .trash(cancellationToken))
+        try await cancelOperation(identifier: .trashNode(cancellationToken))
+    }
+
+    public func delete(nodes: [SDKNodeUid], cancellationToken: UUID) async throws -> [NodeResult] {
+        let cancellationTokenSource = try await createCancellationTokenSource(.deleteNode(cancellationToken), logger)
+        defer {
+            freeCancellationTokenSourceIfNeeded(identifier: .deleteNode(cancellationToken))
+        }
+
+        let deleteRequest = Proton_Drive_Sdk_DriveClientDeleteNodesRequest.with {
+            $0.clientHandle = Int64(clientHandle)
+            $0.nodeUids = nodes.map { $0.sdkCompatibleIdentifier }
+            $0.cancellationTokenSourceHandle = Int64(cancellationTokenSource.handle)
+        }
+
+        let result: Proton_Drive_Sdk_NodeResultListResponse = try await SDKRequestHandler.send(deleteRequest, logger: logger)
+        return result.results.compactMap { NodeResult(sdkNodeResult: $0) }
+    }
+
+    public func cancelDelete(cancellationToken: UUID) async throws {
+        try await cancelOperation(identifier: .deleteNode(cancellationToken))
+    }
+
+    public func restore(nodes: [SDKNodeUid], cancellationToken: UUID) async throws -> [NodeResult] {
+        let cancellationTokenSource = try await createCancellationTokenSource(.restoreNode(cancellationToken), logger)
+        defer {
+            freeCancellationTokenSourceIfNeeded(identifier: .restoreNode(cancellationToken))
+        }
+
+        let restoreRequest = Proton_Drive_Sdk_DriveClientRestoreNodesRequest.with {
+            $0.clientHandle = Int64(clientHandle)
+            $0.nodeUids = nodes.map { $0.sdkCompatibleIdentifier }
+            $0.cancellationTokenSourceHandle = Int64(cancellationTokenSource.handle)
+        }
+
+        let result: Proton_Drive_Sdk_NodeResultListResponse = try await SDKRequestHandler.send(restoreRequest, logger: logger)
+        return result.results.compactMap { NodeResult(sdkNodeResult: $0) }
+    }
+
+    public func cancelRestore(cancellationToken: UUID) async throws {
+        try await cancelOperation(identifier: .restoreNode(cancellationToken))
+    }
+
+    public func enumerateTrashNodeUids(
+        cancellationToken: UUID,
+        onNodeUidEnumerated: @escaping NodeUidCallback
+    ) async throws {
+        let cancellationTokenSource = try await createCancellationTokenSource(.enumerateTrash(cancellationToken), logger)
+        defer {
+            freeCancellationTokenSourceIfNeeded(identifier: .enumerateTrash(cancellationToken))
+        }
+
+        let callbackState = NodeUidEnumerationCallbackWrapper(callback: onNodeUidEnumerated)
+        let request = Proton_Drive_Sdk_DriveClientEnumerateTrashRequest.with {
+            $0.clientHandle = Int64(clientHandle)
+            $0.yieldAction = Int64(ObjectHandle(callback: cNodeUidEnumerationCallback))
+            $0.cancellationTokenSourceHandle = Int64(cancellationTokenSource.handle)
+        }
+
+        let _: Void = try await SDKRequestHandler.send(
+            request,
+            state: WeakReference(value: callbackState),
+            scope: .ownerManaged,
+            owner: callbackState,
+            logger: logger
+        )
+    }
+
+    public func cancelEnumerateTrash(cancellationToken: UUID) async throws {
+        try await cancelOperation(identifier: .enumerateTrash(cancellationToken))
+    }
+
+    public func emptyTrash(cancellationToken: UUID) async throws {
+        let cancellationTokenSource = try await createCancellationTokenSource(.emptyTrash(cancellationToken), logger)
+        defer {
+            freeCancellationTokenSourceIfNeeded(identifier: .emptyTrash(cancellationToken))
+        }
+
+        let emptyTrashRequest = Proton_Drive_Sdk_DriveClientEmptyTrashRequest.with {
+            $0.clientHandle = Int64(clientHandle)
+            $0.cancellationTokenSourceHandle = Int64(cancellationTokenSource.handle)
+        }
+
+        let _: Void = try await SDKRequestHandler.send(emptyTrashRequest, logger: logger)
+    }
+
+    public func cancelEmptyTrash(cancellationToken: UUID) async throws {
+        try await cancelOperation(identifier: .emptyTrash(cancellationToken))
     }
 }
 
@@ -523,6 +705,10 @@ extension ProtonDriveClient {
         )
 
         return accumulator.devices
+    }
+
+    public func cancelEnumerateDevices(cancellationToken: UUID) async throws {
+        try await cancelOperation(identifier: .enumerateDevices(cancellationToken))
     }
 
     public func createDevice(name: String, type: DeviceType, cancellationToken: UUID) async throws -> Device {

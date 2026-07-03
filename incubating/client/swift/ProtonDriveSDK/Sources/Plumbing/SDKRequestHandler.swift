@@ -194,10 +194,14 @@ let sdkResponseCallbackWithState: CCallback = { statePointer, responseArray in
 
         case .value(let value) where value.isA(Proton_Drive_Sdk_Node.self):
             let unpackedValue = try Proton_Drive_Sdk_Node(unpackingAny: value)
-            guard let resultBox = box as? any Resumable<Proton_Drive_Sdk_Node> else {
+            switch box {
+            case let nodeBox as any Resumable<Proton_Drive_Sdk_Node>:
+                nodeBox.resume(returning: unpackedValue)
+            case let optionalNodeBox as any Resumable<Proton_Drive_Sdk_Node?>:
+                optionalNodeBox.resume(returning: unpackedValue)
+            default:
                 throw ProtonDriveSDKError(interopError: .wrongSDKResponse(message: "Received unexpected state in the response. We expected Resumable<Proton_Drive_Sdk_Node>, we got \(type(of: box))"))
             }
-            resultBox.resume(returning: unpackedValue)
 
         case .value(let value) where value.isA(Proton_Drive_Sdk_Device.self):
             let unpackedValue = try Proton_Drive_Sdk_Device(unpackingAny: value)

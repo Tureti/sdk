@@ -86,6 +86,41 @@ extension Message {
                 $0.payload = .driveClientTrashNodes(request)
             }
 
+        case let request as Proton_Drive_Sdk_DriveClientDeleteNodesRequest:
+            Proton_Drive_Sdk_Request.with {
+                $0.payload = .driveClientDeleteNodes(request)
+            }
+
+        case let request as Proton_Drive_Sdk_DriveClientRestoreNodesRequest:
+            Proton_Drive_Sdk_Request.with {
+                $0.payload = .driveClientRestoreNodes(request)
+            }
+
+        case let request as Proton_Drive_Sdk_DriveClientEnumerateTrashRequest:
+            Proton_Drive_Sdk_Request.with {
+                $0.payload = .driveClientEnumerateTrash(request)
+            }
+
+        case let request as Proton_Drive_Sdk_DriveClientEmptyTrashRequest:
+            Proton_Drive_Sdk_Request.with {
+                $0.payload = .driveClientEmptyTrash(request)
+            }
+
+        case let request as Proton_Drive_Sdk_DriveClientEnumerateFolderChildrenRequest:
+            Proton_Drive_Sdk_Request.with {
+                $0.payload = .driveClientEnumerateFolderChildren(request)
+            }
+
+        case let request as Proton_Drive_Sdk_DriveClientGetMyFilesFolderRequest:
+            Proton_Drive_Sdk_Request.with {
+                $0.payload = .driveClientGetMyFilesFolder(request)
+            }
+
+        case let request as Proton_Drive_Sdk_DriveClientGetNodeRequest:
+            Proton_Drive_Sdk_Request.with {
+                $0.payload = .driveClientGetNode(request)
+            }
+
         case let request as Proton_Drive_Sdk_DriveClientEnumerateThumbnailsRequest:
             Proton_Drive_Sdk_Request.with {
                 $0.payload = .driveClientEnumerateThumbnails(request)
@@ -244,6 +279,13 @@ extension Message {
         case let request as Proton_Drive_Sdk_DrivePhotosClientUploaderFreeRequest:
             Proton_Drive_Sdk_Request.with {
                 $0.payload = .drivePhotosClientUploaderFree(request)
+            }
+
+        // MARK: - Device
+
+        case let request as Proton_Drive_Sdk_DriveClientEnumerateDevicesRequest:
+            Proton_Drive_Sdk_Request.with {
+                $0.payload = .driveClientEnumerateDevices(request)
             }
 
         case let request as Proton_Drive_Sdk_DriveClientCreateDeviceRequest:
