@@ -26,7 +26,7 @@ internal static class VolumeOperations
 
         var addressKeyId = defaultAddress.GetPrimaryKey().AddressKeyId;
 
-        var request = GetCreationRequest(defaultAddress.Id, addressKeyId, addressKey, out var rootShareKey, out var rootFolderSecrets);
+        var request = GetCreationRequest(defaultAddress.Id, addressKeyId, addressKey, out var rootShareKey, out var rootFolderOperationData);
 
         var response = await client.Api.Volumes.CreateVolumeAsync(request, cancellationToken).ConfigureAwait(false);
 
@@ -46,16 +46,9 @@ internal static class VolumeOperations
             Errors = [],
         };
 
-        // The volume root folder never has siblings and does not need a name hash digest
-        var nameHashDigest = ReadOnlyMemory<byte>.Empty;
-
-        await client.Cache.Entities.SetMainVolumeIdAsync(volume.Id, cancellationToken).ConfigureAwait(false);
-        await client.Cache.Entities.SetNodeAsync(volume.RootFolderId, rootFolder, share.Id, nameHashDigest, cancellationToken).ConfigureAwait(false);
-        await client.Cache.Entities.SetMyFilesShareIdAsync(share.Id, cancellationToken).ConfigureAwait(false);
-        await client.Cache.Entities.SetShareAsync(share, cancellationToken).ConfigureAwait(false);
-
-        await client.Cache.Secrets.SetShareKeyAsync(volume.RootShareId, rootShareKey, cancellationToken).ConfigureAwait(false);
-        await client.Cache.Secrets.SetFolderSecretsAsync(volume.RootFolderId, rootFolderSecrets, cancellationToken).ConfigureAwait(false);
+        await client.Cache.SetMainVolumeIdAsync(volume.Id, cancellationToken).ConfigureAwait(false);
+        await client.Cache.SetShareKeyAsync(volume.RootShareId, rootShareKey, cancellationToken).ConfigureAwait(false);
+        await client.Cache.SetNodeOperationDataAsync(volume.RootFolderId, rootFolderOperationData, cancellationToken).ConfigureAwait(false);
 
         return (volume, share, rootFolder);
     }
@@ -97,7 +90,7 @@ internal static class VolumeOperations
 
         var addressKeyId = defaultAddress.GetPrimaryKey().AddressKeyId;
 
-        var request = GetPhotosCreationRequest(defaultAddress.Id, addressKeyId, addressKey, out var rootShareKey, out var rootFolderSecrets);
+        var request = GetPhotosVolumeCreationRequest(defaultAddress.Id, addressKeyId, addressKey, out var rootShareKey, out var rootFolderOperationData);
 
         var response = await client.Api.Photos.CreateVolumeAsync(request, cancellationToken).ConfigureAwait(false);
 
@@ -117,18 +110,9 @@ internal static class VolumeOperations
             Errors = [],
         };
 
-        // The volume root folder never has siblings and does not need a name hash digest
-        var nameHashDigest = ReadOnlyMemory<byte>.Empty;
-
-        await client.Cache.Entities.SetPhotosVolumeIdAsync(volume.Id, cancellationToken).ConfigureAwait(false);
-
-        await client.Cache.Entities.SetNodeAsync(volume.RootFolderId, rootFolder, share.Id, nameHashDigest, cancellationToken).ConfigureAwait(false);
-
-        await client.Cache.Entities.SetPhotosShareIdAsync(share.Id, cancellationToken).ConfigureAwait(false);
-        await client.Cache.Entities.SetShareAsync(share, cancellationToken).ConfigureAwait(false);
-
-        await client.Cache.Secrets.SetShareKeyAsync(volume.RootShareId, rootShareKey, cancellationToken).ConfigureAwait(false);
-        await client.Cache.Secrets.SetFolderSecretsAsync(volume.RootFolderId, rootFolderSecrets, cancellationToken).ConfigureAwait(false);
+        await client.Cache.SetPhotosVolumeIdAsync(volume.Id, cancellationToken).ConfigureAwait(false);
+        await client.Cache.SetShareKeyAsync(volume.RootShareId, rootShareKey, cancellationToken).ConfigureAwait(false);
+        await client.Cache.SetNodeOperationDataAsync(volume.RootFolderId, rootFolderOperationData, cancellationToken).ConfigureAwait(false);
 
         return (volume, share, rootFolder);
     }
@@ -140,7 +124,7 @@ internal static class VolumeOperations
 
     public static async ValueTask<VolumeId?> TryGetMainVolumeIdAsync(ProtonDriveClient client, CancellationToken cancellationToken)
     {
-        var (cacheEntryExists, volumeId) = await client.Cache.Entities.TryGetMainVolumeIdAsync(cancellationToken).ConfigureAwait(false);
+        var (cacheEntryExists, volumeId) = await client.Cache.TryGetMainVolumeIdAsync(cancellationToken).ConfigureAwait(false);
         if (cacheEntryExists)
         {
             return volumeId;
@@ -153,15 +137,15 @@ internal static class VolumeOperations
 
     public static async ValueTask<VolumeId?> TryGetPhotosVolumeIdAsync(ProtonDriveClient client, CancellationToken cancellationToken)
     {
-        var (cacheEntryExists, volumeId) = await client.Cache.Entities.TryGetPhotosVolumeIdAsync(cancellationToken).ConfigureAwait(false);
+        var (cacheEntryExists, volumeId) = await client.Cache.TryGetPhotosVolumeIdAsync(cancellationToken).ConfigureAwait(false);
         if (cacheEntryExists)
         {
             return volumeId;
         }
 
-        var myFilesFolder = await PhotosNodeOperations.TryGetExistingPhotosFolderAsync(client, cancellationToken).ConfigureAwait(false);
+        var photosFolder = await PhotosNodeOperations.TryGetExistingPhotosFolderAsync(client, cancellationToken).ConfigureAwait(false);
 
-        return myFilesFolder?.Uid.VolumeId;
+        return photosFolder?.Uid.VolumeId;
     }
 
     public static async IAsyncEnumerable<DriveEvent> EnumerateEventsAsync(
@@ -216,7 +200,7 @@ internal static class VolumeOperations
         AddressKeyId addressKeyId,
         PgpPrivateKey addressKey,
         out PgpPrivateKey rootShareKey,
-        out FolderSecrets rootFolderSecrets)
+        out FolderOperationData rootFolderOperationData)
     {
         rootShareKey = CryptoGenerator.GeneratePrivateKey();
 
@@ -225,8 +209,9 @@ internal static class VolumeOperations
         var rootFolderNameSessionKey = CryptoGenerator.GenerateSessionKey();
         var rootFolderHashKey = CryptoGenerator.GenerateFolderHashKey();
 
-        rootFolderSecrets = new FolderSecrets
+        rootFolderOperationData = new FolderOperationData
         {
+            ParentUid = null,
             Key = rootFolderKey,
             PassphraseSessionKey = rootFolderPassphraseSessionKey,
             NameSessionKey = rootFolderNameSessionKey,
@@ -271,12 +256,12 @@ internal static class VolumeOperations
         };
     }
 
-    private static PhotosVolumeCreationRequest GetPhotosCreationRequest(
+    private static PhotosVolumeCreationRequest GetPhotosVolumeCreationRequest(
         AddressId addressId,
         AddressKeyId addressKeyId,
         PgpPrivateKey addressKey,
         out PgpPrivateKey rootShareKey,
-        out FolderSecrets rootFolderSecrets)
+        out FolderOperationData rootFolderOperationData)
     {
         rootShareKey = CryptoGenerator.GeneratePrivateKey();
 
@@ -285,8 +270,9 @@ internal static class VolumeOperations
         var rootFolderNameSessionKey = CryptoGenerator.GenerateSessionKey();
         var rootFolderHashKey = CryptoGenerator.GenerateFolderHashKey();
 
-        rootFolderSecrets = new FolderSecrets
+        rootFolderOperationData = new FolderOperationData
         {
+            ParentUid = null,
             Key = rootFolderKey,
             PassphraseSessionKey = rootFolderPassphraseSessionKey,
             NameSessionKey = rootFolderNameSessionKey,

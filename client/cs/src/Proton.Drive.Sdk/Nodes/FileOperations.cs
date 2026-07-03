@@ -7,26 +7,27 @@ internal static class FileOperations
 {
     private const int MaxThumbnailIdsPerRequest = 30;
 
-    public static async ValueTask<FileSecrets> GetSecretsAsync(ProtonDriveClient client, NodeUid fileUid, bool forPhotos, CancellationToken cancellationToken)
+    public static async ValueTask<FileOperationData> GetOperationDataAsync(
+        ProtonDriveClient client,
+        NodeUid uid,
+        ShareAndKey? knownShareAndKey,
+        CancellationToken cancellationToken)
     {
-        var fileSecrets = await client.Cache.Secrets.TryGetFileSecretsAsync(fileUid, cancellationToken).ConfigureAwait(false);
+        var nodeOperationData =
+            await NodeOperations.GetOperationDataAsync(client, uid, knownShareAndKey, cancellationToken).ConfigureAwait(false);
 
-        if (fileSecrets is null)
+        if (nodeOperationData is not FileOperationData fileOperationData)
         {
-            var metadata = await NodeOperations.GetFreshNodeMetadataAsync(client, fileUid, knownShareAndKey: null, forPhotos, cancellationToken)
-                .ConfigureAwait(false);
-
-            fileSecrets = metadata.GetFileSecretsOrThrow();
+            throw new InvalidOperationException($"Node {uid} is not a file.");
         }
 
-        return fileSecrets;
+        return fileOperationData;
     }
 
     public static async IAsyncEnumerable<FileThumbnail> EnumerateThumbnailsAsync(
         ProtonDriveClient client,
         IEnumerable<NodeUid> fileUids,
         ThumbnailType thumbnailType,
-        bool forPhotos,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         // TODO: optimize parallelization for when UIDs are scattered over many volumes
@@ -36,7 +37,9 @@ internal static class FileOperations
 
             var unprocessedLinkIds = volumeLinkIdGroup.ToHashSet();
 
-            var nodeResults = NodeOperations.EnumerateNodesAsync(client, volumeId, unprocessedLinkIds, forPhotos, cancellationToken);
+            var nodeResults = client.NodeProvider
+                .EnumerateNodeMetadataAsync(client, volumeId, unprocessedLinkIds, knownShareAndKey: null, cancellationToken)
+                .Select(metadata => metadata.Node);
 
             var errors = new List<FileThumbnail>();
 
@@ -116,7 +119,7 @@ internal static class FileOperations
                         await client.ThumbnailDownloadQueue.EnqueueBlockAsync(cancellationToken).ConfigureAwait(false);
                     }
 
-                    tasks.Enqueue(DownloadThumbnailAsync(client, nodeInfo.ActiveRevisionUid, block, forPhotos, cancellationToken));
+                    tasks.Enqueue(DownloadThumbnailAsync(client, nodeInfo.ActiveRevisionUid, block, cancellationToken));
                 }
 
                 foreach (var error in response.Errors)
@@ -148,7 +151,6 @@ internal static class FileOperations
         ProtonDriveClient client,
         RevisionUid revisionUid,
         ThumbnailBlock block,
-        bool forPhotos,
         CancellationToken cancellationToken)
     {
         const int initialBufferLength = 64 * 1024;
@@ -158,9 +160,13 @@ internal static class FileOperations
             var outputStream = new MemoryStream(initialBufferLength);
             await using (outputStream.ConfigureAwait(false))
             {
-                var fileSecrets = await GetSecretsAsync(client, revisionUid.NodeUid, forPhotos, cancellationToken).ConfigureAwait(false);
+                var operationData = await GetOperationDataAsync(
+                    client,
+                    revisionUid.NodeUid,
+                    knownShareAndKey: null,
+                    cancellationToken).ConfigureAwait(false);
 
-                var contentKey = fileSecrets.ContentKey
+                var contentKey = operationData.ContentKey
                     ?? throw new InvalidOperationException($"Content key not available for file {revisionUid.NodeUid}");
 
                 await client.ThumbnailBlockDownloader.DownloadAsync(

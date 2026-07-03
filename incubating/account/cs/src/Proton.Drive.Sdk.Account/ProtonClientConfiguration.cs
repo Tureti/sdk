@@ -19,8 +19,7 @@ public sealed class ProtonClientConfiguration(string appVersion, ProtonClientOpt
             : ProtonClientTlsPolicy.Strict;
 
     public Func<DelegatingHandler>? CustomHttpMessageHandlerFactory { get; } = options?.CustomHttpMessageHandlerFactory;
-    public ICacheRepository SecretCacheRepository { get; } = options?.SecretCacheRepository ?? new InMemoryCacheRepository();
-    public ICacheRepository EntityCacheRepository { get; } = options?.EntityCacheRepository ?? new InMemoryCacheRepository();
+    public ICacheRepository CacheRepository { get; } = options?.CacheRepository ?? new InMemoryCacheRepository();
     public ITelemetry Telemetry { get; } = options?.Telemetry ?? NullTelemetry.Instance;
     public IFeatureFlagProvider FeatureFlagProvider { get; } = options?.FeatureFlagProvider ?? AlwaysDisabledFeatureFlagProvider.Instance;
     public Uri RefreshRedirectUri { get; } = options?.RefreshRedirectUri ?? ProtonAccountDefaults.DefaultRefreshRedirectUri;

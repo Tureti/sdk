@@ -54,8 +54,7 @@ class JniProtonPhotosClient internal constructor() : JniBaseProtonDriveSdk() {
                     cancellationAction = JniJob.getCancelPointer()
                 }
                 accountRequestAction = ProtonDriveSdkNativeClient.getAccountRequestPointer()
-                request.entityCachePath?.let { entityCachePath = it }
-                request.secretCachePath?.let { secretCachePath = it }
+                request.cachePath?.let { cachePath = it }
                 telemetry = telemetry {
                     loggerProviderHandle = request.loggerProvider.handle
                     recordMetricAction = ProtonDriveSdkNativeClient.getRecordMetricPointer()

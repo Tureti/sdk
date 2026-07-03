@@ -19,7 +19,7 @@ internal static partial class DeviceOperations
         var devicesByRootFolderUid = devices.ToDictionary(device => device.RootFolderUid);
 
         await foreach (var node in NodeOperations
-            .EnumerateNodesAsync(client, devicesByRootFolderUid.Keys.ToAsyncEnumerable(), forPhotos: false, cancellationToken)
+            .EnumerateNodesAsync(client, devicesByRootFolderUid.Keys.ToAsyncEnumerable(), cancellationToken)
             .ConfigureAwait(false))
         {
             if (devicesByRootFolderUid.TryGetValue(node.Uid, out var device))
@@ -106,16 +106,16 @@ internal static partial class DeviceOperations
         string name,
         CancellationToken cancellationToken)
     {
-        var (node, secrets, membershipShareId, _) = await NodeOperations
-            .GetNodeMetadataAsync(client, rootFolderUid, knownShareAndKey: null, useCacheOnly: false, forPhotos: false, cancellationToken)
+        var operationData = await NodeOperations
+            .GetOperationDataAsync(client, rootFolderUid, knownShareAndKey: null, cancellationToken)
             .ConfigureAwait(false);
 
-        var nameSessionKey = secrets.NameSessionKey
+        var nameSessionKey = operationData.NameSessionKey
             ?? throw new InvalidOperationException($"Name session key not available for {rootFolderUid}");
 
         // The root node's name is encrypted with the device's own (direct) share key, which also identifies the
         // membership address that owns the name signature.
-        var (share, shareKey) = await ShareOperations.GetShareAsync(client, shareId, useCacheOnly: false, cancellationToken).ConfigureAwait(false);
+        var (share, shareKey) = await ShareOperations.GetShareAsync(client, shareId, cancellationToken).ConfigureAwait(false);
 
         var membershipAddress = await client.Account.GetAddressAsync(share.MembershipAddressId, cancellationToken).ConfigureAwait(false);
 
@@ -124,10 +124,6 @@ internal static partial class DeviceOperations
         var request = DeviceCrypto.GetRenameRequest(name, shareKey, nameSessionKey, signingKey, membershipAddress.EmailAddress);
 
         await client.Api.Links.RenameAsync(rootFolderUid.VolumeId, rootFolderUid.LinkId, request, cancellationToken).ConfigureAwait(false);
-
-        await client.Cache.Entities
-            .SetNodeAsync(rootFolderUid, node with { Name = name }, membershipShareId, nameHashDigest: ReadOnlyMemory<byte>.Empty, cancellationToken)
-            .ConfigureAwait(false);
     }
 
     private static async ValueTask<DeviceMetadata> GetDeviceMetadataAsync(ProtonDriveClient client, DeviceUid deviceUid, CancellationToken cancellationToken)

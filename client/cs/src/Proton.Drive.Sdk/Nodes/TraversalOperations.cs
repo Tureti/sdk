@@ -2,16 +2,13 @@ namespace Proton.Drive.Sdk.Nodes;
 
 internal static class TraversalOperations
 {
-    public static async ValueTask<NodeMetadata> FindRootForNode(
+    public static async ValueTask<NodeMetadata> FindRootForNodeAsync(
         ProtonDriveClient client,
         NodeMetadata nodeMetadata,
-        bool useCacheOnly,
         CancellationToken cancellationToken)
     {
         var currentMetadata = nodeMetadata;
-        var forPhotos = nodeMetadata.Node is PhotoNode;
-        var (entryPointUid, nextForPhotos) = GetNextEntryPoint(currentMetadata);
-        forPhotos |= nextForPhotos;
+        var entryPointUid = GetNextEntryPoint(currentMetadata);
 
         HashSet<NodeUid> visitedNodes = [];
 
@@ -26,28 +23,23 @@ internal static class TraversalOperations
                 client,
                 (NodeUid)entryPointUid,
                 knownShareAndKey: null,
-                useCacheOnly,
-                forPhotos,
                 cancellationToken).ConfigureAwait(false);
 
-            (entryPointUid, nextForPhotos) = GetNextEntryPoint(currentMetadata);
-            forPhotos |= nextForPhotos;
+            entryPointUid = GetNextEntryPoint(currentMetadata);
         }
 
         return currentMetadata;
     }
 
-    private static (NodeUid? Uid, bool ForPhotos) GetNextEntryPoint(NodeMetadata nodeMetadata)
+    private static NodeUid? GetNextEntryPoint(NodeMetadata nodeMetadata)
     {
         if (nodeMetadata.Node.ParentUid is { } parentUid)
         {
-            return (parentUid, nodeMetadata.Node is PhotoNode);
+            return parentUid;
         }
 
-        var albumUid = nodeMetadata.Node is PhotoNode { AlbumUids.Count: > 0 } photo
-            ? (NodeUid?)photo.AlbumUids[0]
+        return nodeMetadata.Node is PhotoNode { AlbumUids.Count: > 0 } photo
+            ? photo.AlbumUids[0]
             : null;
-
-        return (albumUid, albumUid is not null);
     }
 }

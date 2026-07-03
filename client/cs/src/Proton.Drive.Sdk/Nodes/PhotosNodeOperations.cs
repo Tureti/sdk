@@ -21,31 +21,40 @@ internal static class PhotosNodeOperations
 
     public static async ValueTask<FolderNode?> TryGetExistingPhotosFolderAsync(ProtonDriveClient client, CancellationToken cancellationToken)
     {
-        var shareId = await client.Cache.Entities.TryGetPhotosShareIdAsync(cancellationToken).ConfigureAwait(false);
-        if (shareId is null)
+        try
         {
-            try
-            {
-                return await GetFreshExistingPhotosFolderAsync(client, cancellationToken).ConfigureAwait(false);
-            }
-            catch (ProtonApiException e) when (e.Code is DriveApiResponseCodes.DoesNotExist)
-            {
-                await client.Cache.Entities.SetPhotosVolumeIdAsync(null, cancellationToken).AsTask().ConfigureAwait(false);
-                return null;
-            }
+            var (volumeDto, shareDto, linkDetailsDto) = await client.Api.Photos.GetRootShareAsync(cancellationToken).ConfigureAwait(false);
+
+            await client.Cache.SetPhotosVolumeIdAsync(volumeDto.Id, cancellationToken).ConfigureAwait(false);
+
+            var nodeUid = new NodeUid(volumeDto.Id, linkDetailsDto.Link.Id);
+
+            var (share, shareKey) = await ShareCrypto.DecryptShareAsync(
+                client,
+                shareDto.Id,
+                shareDto.Key,
+                shareDto.Passphrase,
+                shareDto.MembershipAddressId,
+                nodeUid,
+                ShareType.Photos,
+                cancellationToken).ConfigureAwait(false);
+
+            await client.Cache.SetShareKeyAsync(share.Id, shareKey, cancellationToken).ConfigureAwait(false);
+
+            var metadataResult = await DtoToMetadataConverter.ConvertDtoToFolderMetadataAsync(
+                client,
+                volumeDto.Id,
+                linkDetailsDto,
+                shareKey,
+                cancellationToken).ConfigureAwait(false);
+
+            return metadataResult.Node;
         }
-
-        var shareAndKey = await ShareOperations.GetShareAsync(client, shareId.Value, useCacheOnly: false, cancellationToken).ConfigureAwait(false);
-
-        var metadata = await NodeOperations.GetNodeMetadataAsync(
-            client,
-            shareAndKey.Share.RootFolderId,
-            shareAndKey,
-            useCacheOnly: false,
-            forPhotos: true,
-            cancellationToken).ConfigureAwait(false);
-
-        return metadata.GetFolderNodeOrThrow();
+        catch (ProtonApiException e) when (e.Code is DriveApiResponseCodes.DoesNotExist)
+        {
+            await client.Cache.SetPhotosVolumeIdAsync(null, cancellationToken).AsTask().ConfigureAwait(false);
+            return null;
+        }
     }
 
     public static async IAsyncEnumerable<PhotosTimelineItem> EnumeratePhotosTimelineAsync(
@@ -72,38 +81,6 @@ internal static class PhotosNodeOperations
                 yield return new PhotosTimelineItem(photoUid, photo.CaptureTime);
             }
         } while (anchorLinkId is not null);
-    }
-
-    private static async ValueTask<FolderNode> GetFreshExistingPhotosFolderAsync(ProtonDriveClient client, CancellationToken cancellationToken)
-    {
-        var (volumeDto, shareDto, linkDetailsDto) = await client.Api.Photos.GetRootShareAsync(cancellationToken).ConfigureAwait(false);
-
-        await client.Cache.Entities.SetPhotosShareIdAsync(shareDto.Id, cancellationToken).ConfigureAwait(false);
-        await client.Cache.Entities.SetPhotosVolumeIdAsync(volumeDto.Id, cancellationToken).ConfigureAwait(false);
-
-        var nodeUid = new NodeUid(volumeDto.Id, linkDetailsDto.Link.Id);
-
-        var (share, shareKey) = await ShareCrypto.DecryptShareAsync(
-            client,
-            shareDto.Id,
-            shareDto.Key,
-            shareDto.Passphrase,
-            shareDto.MembershipAddressId,
-            nodeUid,
-            ShareType.Photos,
-            cancellationToken).ConfigureAwait(false);
-
-        await client.Cache.Secrets.SetShareKeyAsync(share.Id, shareKey, cancellationToken).ConfigureAwait(false);
-        await client.Cache.Entities.SetShareAsync(share, cancellationToken).ConfigureAwait(false);
-
-        var metadataResult = await DtoToMetadataConverter.ConvertDtoToFolderMetadataAsync(
-            client,
-            volumeDto.Id,
-            linkDetailsDto,
-            shareKey,
-            cancellationToken).ConfigureAwait(false);
-
-        return metadataResult.Node;
     }
 
     private static async ValueTask<FolderNode> CreatePhotosFolderAsync(ProtonDriveClient client, CancellationToken cancellationToken)

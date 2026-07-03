@@ -17,6 +17,5 @@ namespace Proton.Drive.Sdk.Serialization;
 #pragma warning restore SA1114, SA1118
 [JsonSerializable(typeof(IEnumerable<PgpPrivateKey>))]
 [JsonSerializable(typeof(PgpPrivateKey))]
-[JsonSerializable(typeof(FolderSecrets))]
-[JsonSerializable(typeof(FileSecrets))]
+[JsonSerializable(typeof(NodeOperationData))]
 internal sealed partial class DriveSecretsSerializerContext : JsonSerializerContext;

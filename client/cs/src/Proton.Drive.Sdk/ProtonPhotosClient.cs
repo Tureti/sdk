@@ -2,10 +2,12 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Proton.Drive.Sdk.Api;
 using Proton.Drive.Sdk.Api.Photos;
+using Proton.Drive.Sdk.Caching;
 using Proton.Drive.Sdk.Http;
 using Proton.Drive.Sdk.Nodes;
 using Proton.Drive.Sdk.Nodes.Download;
 using Proton.Drive.Sdk.Nodes.Upload;
+using Proton.Drive.Sdk.Nodes.Upload.Verification;
 using Proton.Drive.Sdk.Volumes;
 using Proton.Sdk;
 using Proton.Sdk.Api;
@@ -20,21 +22,28 @@ public sealed class ProtonPhotosClient
     public ProtonPhotosClient(
         IHttpClientFactory httpClientFactory,
         IProtonAccountClient accountClient,
-        ICacheRepository entityCacheRepository,
-        ICacheRepository secretCacheRepository,
+        ICacheRepository cacheRepository,
         IFeatureFlagProvider featureFlagProvider,
         ITelemetry telemetry,
         ProtonDriveClientOptions? creationParameters = null)
     {
+        var httpClientFactoryDecorator = new SdkHttpClientFactoryDecorator(httpClientFactory, creationParameters?.BindingsLanguage);
+        var defaultApiHttpClient = httpClientFactoryDecorator.CreateClientWithTimeout(
+            creationParameters?.DefaultApiTimeoutSecondsOverride ?? ProtonApiDefaults.DefaultTimeoutSeconds);
+        var storageApiHttpClient = httpClientFactoryDecorator.CreateClientWithTimeout(
+            creationParameters?.StorageApiTimeoutSecondsOverride ?? ProtonDriveDefaults.StorageApiTimeoutSeconds);
+        var api = new DriveApiClients(defaultApiHttpClient, storageApiHttpClient);
+
         DriveClient = new ProtonDriveClient(
-            httpClientFactory,
             accountClient,
-            entityCacheRepository,
-            secretCacheRepository,
+            api,
+            new PhotosNodeProvider(api),
+            new DriveCache(cacheRepository),
+            new BlockVerifierFactory(defaultApiHttpClient),
             featureFlagProvider,
             telemetry,
-            (defaultApiHttpClient, storageApiHttpClient) => new DriveApiClients(defaultApiHttpClient, storageApiHttpClient),
-            creationParameters);
+            creationParameters?.Uid,
+            creationParameters?.DegreeOfBlockTransferParallelismOverride);
 
         var httpClient = new SdkHttpClientFactoryDecorator(httpClientFactory).CreateClientWithTimeout(
             creationParameters?.DefaultApiTimeoutSecondsOverride ?? ProtonApiDefaults.DefaultTimeoutSeconds);
@@ -86,13 +95,13 @@ public sealed class ProtonPhotosClient
     public ValueTask<Node?> GetNodeAsync(NodeUid nodeUid, CancellationToken cancellationToken)
     {
         return NodeOperations
-            .EnumerateNodesAsync(DriveClient, nodeUid.VolumeId, [nodeUid.LinkId], forPhotos: true, cancellationToken)
+            .EnumerateNodesAsync(DriveClient, nodeUid.VolumeId, [nodeUid.LinkId], cancellationToken)
             .FirstOrDefaultAsync(cancellationToken);
     }
 
     public IAsyncEnumerable<Node> EnumerateNodesAsync(IAsyncEnumerable<NodeUid> nodeUids, CancellationToken cancellationToken = default)
     {
-        return NodeOperations.EnumerateNodesAsync(DriveClient, nodeUids, forPhotos: true, cancellationToken);
+        return NodeOperations.EnumerateNodesAsync(DriveClient, nodeUids, cancellationToken);
     }
 
     [Experimental("Photos")]
@@ -117,7 +126,7 @@ public sealed class ProtonPhotosClient
         ThumbnailType thumbnailType = ThumbnailType.Thumbnail,
         CancellationToken cancellationToken = default)
     {
-        return FileOperations.EnumerateThumbnailsAsync(DriveClient, photoUids, thumbnailType, forPhotos: true, cancellationToken);
+        return FileOperations.EnumerateThumbnailsAsync(DriveClient, photoUids, thumbnailType, cancellationToken);
     }
 
     public ValueTask<IReadOnlyDictionary<NodeUid, Result<Exception>>> TrashNodesAsync(IEnumerable<NodeUid> uids, CancellationToken cancellationToken)

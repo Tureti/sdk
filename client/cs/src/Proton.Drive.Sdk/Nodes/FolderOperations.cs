@@ -11,6 +11,23 @@ namespace Proton.Drive.Sdk.Nodes;
 
 internal static class FolderOperations
 {
+    public static async ValueTask<FolderOperationData> GetOperationDataAsync(
+        ProtonDriveClient client,
+        NodeUid uid,
+        ShareAndKey? knownShareAndKey,
+        CancellationToken cancellationToken)
+    {
+        var nodeOperationData =
+            await NodeOperations.GetOperationDataAsync(client, uid, knownShareAndKey, cancellationToken).ConfigureAwait(false);
+
+        if (nodeOperationData is not FolderOperationData folderOperationData)
+        {
+            throw new InvalidOperationException($"Node {uid} is not a folder.");
+        }
+
+        return folderOperationData;
+    }
+
     public static async IAsyncEnumerable<NodeUid> EnumerateChildrenAsync(
         ProtonDriveClient client,
         NodeUid folderUid,
@@ -49,7 +66,7 @@ internal static class FolderOperations
 
         var parentOwnedBy = parentResult.OwnedBy;
 
-        var (parentKey, parentHashKey) = await GetKeyAndHashKeyAsync(client, parentUid, forPhotos: false, cancellationToken).ConfigureAwait(false);
+        var (parentKey, parentHashKey) = await GetKeyAndHashKeyAsync(client, parentUid, cancellationToken).ConfigureAwait(false);
 
         var membershipAddress = await NodeOperations.GetMembershipAddressAsync(client, parentUid, cancellationToken).ConfigureAwait(false);
 
@@ -101,19 +118,20 @@ internal static class FolderOperations
 
         var folderUid = new NodeUid(parentUid.VolumeId, response.FolderId.Value);
 
-        var folderSecrets = new FolderSecrets
+        var operationData = new FolderOperationData
         {
+            ParentUid = parentUid,
             Key = key,
             PassphraseSessionKey = passphraseSessionKey,
             NameSessionKey = nameSessionKey,
             HashKey = hashKey,
         };
 
-        await client.Cache.Secrets.SetFolderSecretsAsync(folderUid, folderSecrets, cancellationToken).ConfigureAwait(false);
+        await client.Cache.SetNodeOperationDataAsync(folderUid, operationData, cancellationToken).ConfigureAwait(false);
 
         var author = new Author { EmailAddress = membershipAddress.EmailAddress };
 
-        var folderNode = new FolderNode
+        return new FolderNode
         {
             Uid = folderUid,
             ParentUid = parentUid,
@@ -124,41 +142,18 @@ internal static class FolderOperations
             OwnedBy = parentOwnedBy,
             Errors = [],
         };
-
-        await client.Cache.Entities.SetNodeAsync(folderUid, folderNode, membershipShareId: null, nameHashDigest, cancellationToken).ConfigureAwait(false);
-
-        return folderNode;
-    }
-
-    public static async ValueTask<FolderSecrets> GetSecretsAsync(
-        ProtonDriveClient client,
-        NodeUid folderUid,
-        bool forPhotos,
-        CancellationToken cancellationToken)
-    {
-        var result = await client.Cache.Secrets.TryGetFolderSecretsAsync(folderUid, cancellationToken).ConfigureAwait(false);
-
-        if (result is null)
-        {
-            var nodeMetadata = await NodeOperations.GetFreshNodeMetadataAsync(client, folderUid, knownShareAndKey: null, forPhotos, cancellationToken)
-                .ConfigureAwait(false);
-
-            result = nodeMetadata.GetFolderSecretsOrThrow();
-        }
-
-        return result;
     }
 
     public static async ValueTask<(PgpPrivateKey Key, ReadOnlyMemory<byte> HashKey)> GetKeyAndHashKeyAsync(
         ProtonDriveClient client,
         NodeUid folderUid,
-        bool forPhotos,
         CancellationToken cancellationToken)
     {
-        var secretsResult = await GetSecretsAsync(client, folderUid, forPhotos, cancellationToken).ConfigureAwait(false);
+        var operationData = await GetOperationDataAsync(client, folderUid, knownShareAndKey: null, cancellationToken)
+            .ConfigureAwait(false);
 
-        var key = secretsResult.Key ?? throw new InvalidOperationException($"Parent folder key not available for {folderUid}");
-        var hashKey = secretsResult.HashKey ?? throw new InvalidOperationException($"Parent folder hash key not available for {folderUid}");
+        var key = operationData.Key ?? throw new InvalidOperationException($"Folder key not available for {folderUid}");
+        var hashKey = operationData.HashKey ?? throw new InvalidOperationException($"Folder hash key not available for {folderUid}");
 
         return (key, hashKey);
     }

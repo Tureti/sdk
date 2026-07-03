@@ -13,13 +13,12 @@ public sealed class ProtonAccountClient : IProtonAccountClient
 {
     public ProtonAccountClient(
         IHttpClientFactory httpClientFactory,
-        ICacheRepository entityCacheRepository,
-        ICacheRepository secretCacheRepository,
+        ICacheRepository cacheRepository,
         ISessionSecretCache sessionSecretCache,
         ITelemetry telemetry)
         : this(
             new AccountApiClients(EnsureBaseAddress(httpClientFactory.CreateClient())),
-            new AccountClientCache(entityCacheRepository, secretCacheRepository, sessionSecretCache),
+            new AccountClientCache(cacheRepository, sessionSecretCache),
             telemetry.GetLogger<ProtonAccountClient>())
     {
     }

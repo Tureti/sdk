@@ -5,27 +5,22 @@ namespace Proton.Drive.Sdk.Shares;
 
 internal static class ShareOperations
 {
-    public static async ValueTask<ShareAndKey> GetShareAsync(ProtonDriveClient client, ShareId shareId, bool useCacheOnly, CancellationToken cancellationToken)
+    public static async ValueTask<ShareAndKey> GetShareAsync(ProtonDriveClient client, ShareId shareId, CancellationToken cancellationToken)
     {
-        var share = await client.Cache.Entities.TryGetShareAsync(shareId, cancellationToken).ConfigureAwait(false);
-        var shareKey = await client.Cache.Secrets.TryGetShareKeyAsync(shareId, cancellationToken).ConfigureAwait(false);
+        var response = await client.Api.Shares.GetShareAsync(shareId, cancellationToken).ConfigureAwait(false);
 
-        if (share is null || shareKey is null)
+        if (response.MembershipAddressId is not { } membershipAddressId)
         {
-            if (useCacheOnly)
-            {
-                throw new InvalidOperationException($"Share \"{shareId}\" not found in cache");
-            }
+            throw new InvalidOperationException($"Membership address ID is missing for share \"{shareId}\"");
+        }
 
-            var response = await client.Api.Shares.GetShareAsync(shareId, cancellationToken).ConfigureAwait(false);
+        var rootFolderId = new NodeUid(response.VolumeId, response.RootLinkId);
 
-            if (response.MembershipAddressId is not { } membershipAddressId)
-            {
-                throw new InvalidOperationException($"Membership address ID is missing for share \"{shareId}\"");
-            }
+        var shareKey = await client.Cache.TryGetShareKeyAsync(shareId, cancellationToken).ConfigureAwait(false);
 
-            var rootFolderId = new NodeUid(response.VolumeId, response.RootLinkId);
-
+        Share share;
+        if (shareKey is null)
+        {
             (share, shareKey) = await ShareCrypto.DecryptShareAsync(
                 client,
                 shareId,
@@ -36,8 +31,11 @@ internal static class ShareOperations
                 response.Type,
                 cancellationToken).ConfigureAwait(false);
 
-            await client.Cache.Entities.SetShareAsync(share, cancellationToken).ConfigureAwait(false);
-            await client.Cache.Secrets.SetShareKeyAsync(shareId, shareKey.Value, cancellationToken).ConfigureAwait(false);
+            await client.Cache.SetShareKeyAsync(shareId, shareKey.Value, cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            share = new Share(shareId, rootFolderId, membershipAddressId, response.Type);
         }
 
         return new ShareAndKey(share, shareKey.Value);
@@ -53,10 +51,9 @@ internal static class ShareOperations
     public static async ValueTask<ShareAndKey> GetContextShareAsync(
         ProtonDriveClient client,
         NodeMetadata nodeMetadata,
-        bool useCacheOnly,
         CancellationToken cancellationToken)
     {
-        var contextRoot = await TraversalOperations.FindRootForNode(client, nodeMetadata, useCacheOnly, cancellationToken).ConfigureAwait(false);
+        var contextRoot = await TraversalOperations.FindRootForNodeAsync(client, nodeMetadata, cancellationToken).ConfigureAwait(false);
         var contextShareId = contextRoot.MembershipShareId;
 
         if (!contextShareId.HasValue)
@@ -64,6 +61,6 @@ internal static class ShareOperations
             throw new InvalidOperationException("Node does not have a valid context share");
         }
 
-        return await GetShareAsync(client, (ShareId)contextShareId, useCacheOnly, cancellationToken).ConfigureAwait(false);
+        return await GetShareAsync(client, (ShareId)contextShareId, cancellationToken).ConfigureAwait(false);
     }
 }

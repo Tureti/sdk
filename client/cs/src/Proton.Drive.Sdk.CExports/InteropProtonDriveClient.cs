@@ -36,19 +36,15 @@ internal static class InteropProtonDriveClient
 
         var accountClient = new InteropProtonAccountClient(bindingsHandle, new InteropAction<nint, InteropArray<byte>, nint>(request.AccountRequestAction));
 
-        ICacheRepository entityCacheRepository = request.HasEntityCachePath
-            ? SqliteCacheRepository.OpenFile(request.EntityCachePath)
+        ICacheRepository cacheRepository = request.HasCachePath
+            ? SqliteCacheRepository.OpenFile(request.CachePath)
             : new InMemoryCacheRepository();
 
-        ICacheRepository secretCacheRepository = request.HasSecretCachePath
-            ? SqliteCacheRepository.OpenFile(request.SecretCachePath)
-            : new InMemoryCacheRepository();
-
-        if (request.HasSecretCacheEncryptionKey)
+        if (request.HasCacheEncryptionKey)
         {
-            secretCacheRepository = new EncryptedCacheRepository(
-                secretCacheRepository,
-                request.SecretCacheEncryptionKey.ToByteArray());
+            cacheRepository = new EncryptedCacheRepository(
+                cacheRepository,
+                request.CacheEncryptionKey.ToByteArray());
         }
 
         ITelemetry telemetry = request.Telemetry.ToTelemetry(bindingsHandle) is { } interopTelemetry
@@ -62,8 +58,7 @@ internal static class InteropProtonDriveClient
         var client = new ProtonDriveClient(
             httpClientFactory,
             accountClient,
-            entityCacheRepository,
-            secretCacheRepository,
+            cacheRepository,
             featureFlagProvider,
             telemetry,
             protonDriveClientOptions);

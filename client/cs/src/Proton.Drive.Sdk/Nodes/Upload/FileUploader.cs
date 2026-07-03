@@ -40,7 +40,6 @@ public sealed class FileUploader : IDisposable
         IEnumerable<Thumbnail> thumbnails,
         Action<long, long>? onProgress,
         Func<ReadOnlyMemory<byte>>? expectedSha1Provider,
-        bool forPhotos,
         CancellationToken cancellationToken)
     {
         return UploadFromStream(
@@ -49,7 +48,6 @@ public sealed class FileUploader : IDisposable
             thumbnails,
             onProgress,
             expectedSha1Provider,
-            forPhotos,
             cancellationToken);
     }
 
@@ -58,7 +56,6 @@ public sealed class FileUploader : IDisposable
         IEnumerable<Thumbnail> thumbnails,
         Action<long, long>? onProgress,
         Func<ReadOnlyMemory<byte>>? expectedSha1Provider,
-        bool forPhotos,
         CancellationToken cancellationToken)
     {
         var contentStream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
@@ -69,7 +66,6 @@ public sealed class FileUploader : IDisposable
             thumbnails,
             onProgress,
             expectedSha1Provider,
-            forPhotos,
             cancellationToken);
     }
 
@@ -142,7 +138,6 @@ public sealed class FileUploader : IDisposable
         IEnumerable<Thumbnail> thumbnails,
         Action<long, long>? onProgress,
         Func<ReadOnlyMemory<byte>>? expectedSha1Provider,
-        bool forPhotos,
         CancellationToken cancellationToken)
     {
         var taskControl = new TaskControl(cancellationToken);
@@ -157,7 +152,6 @@ public sealed class FileUploader : IDisposable
             progress => onProgress?.Invoke(progress, FileSize),
             expectedSha1,
             revisionDraftTaskCompletionSource,
-            forPhotos,
             ct);
 
         return new UploadController(
@@ -200,13 +194,12 @@ public sealed class FileUploader : IDisposable
         Action<long>? onProgress,
         Lazy<ReadOnlyMemory<byte>>? expectedSha1,
         TaskCompletionSource<RevisionDraft> revisionDraftTaskCompletionSource,
-        bool forPhotos,
         CancellationToken cancellationToken)
     {
         var revisionDraft = revisionDraftTaskCompletionSource.Task.GetResultIfCompletedSuccessfully();
         if (revisionDraft is null)
         {
-            revisionDraft = await _revisionDraftProvider.GetDraftAsync(FileSize, forPhotos, cancellationToken).ConfigureAwait(false);
+            revisionDraft = await _revisionDraftProvider.GetDraftAsync(FileSize, cancellationToken).ConfigureAwait(false);
             revisionDraftTaskCompletionSource.SetResult(revisionDraft);
         }
 
@@ -218,34 +211,7 @@ public sealed class FileUploader : IDisposable
             expectedSha1,
             cancellationToken).ConfigureAwait(false);
 
-        await UpdateActiveRevisionInCacheAsync(revisionDraft.Uid, contentStream.Length, cancellationToken).ConfigureAwait(false);
-
         return new UploadResult(revisionDraft.Uid.NodeUid, revisionDraft.Uid);
-    }
-
-    private async ValueTask UpdateActiveRevisionInCacheAsync(RevisionUid revisionUid, long size, CancellationToken cancellationToken)
-    {
-        var cachedNodeInfo = await _client.Cache.Entities.TryGetNodeAsync(revisionUid.NodeUid, cancellationToken).ConfigureAwait(false);
-
-        if (cachedNodeInfo is not (FileNode fileNode, var membershipShareId, var nameHashDigest))
-        {
-            await _client.Cache.Entities.RemoveNodeAsync(revisionUid.NodeUid, cancellationToken).ConfigureAwait(false);
-            return;
-        }
-
-        fileNode = fileNode with
-        {
-            ActiveRevision = fileNode.ActiveRevision with
-            {
-                Uid = revisionUid,
-                ClaimedSize = size,
-                ClaimedModificationTime = _metadata.LastModificationTime?.UtcDateTime,
-
-                // FIXME: update remaining metadata in cache, but this is not critical because this metadata will soon be invalidated by the event anyway
-            },
-        };
-
-        await _client.Cache.Entities.SetNodeAsync(fileNode.Uid, fileNode, membershipShareId, nameHashDigest, cancellationToken).ConfigureAwait(false);
     }
 
     private async ValueTask UploadAsync(

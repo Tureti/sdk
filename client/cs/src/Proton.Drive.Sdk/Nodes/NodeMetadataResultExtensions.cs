@@ -19,14 +19,14 @@ internal static class NodeMetadataResultExtensions
                 : throw new InvalidNodeTypeException(fileNode.Uid, LinkType.File);
         }
 
-        public FolderSecrets GetFolderSecretsOrThrow()
+        public FolderOperationData GetFolderSecretsOrThrow()
         {
             return !metadata.TryGetFileElseFolder(out var fileNode, out _, out _, out var folderSecrets)
                 ? folderSecrets
                 : throw new InvalidNodeTypeException(fileNode.Uid, LinkType.File);
         }
 
-        public FileSecrets GetFileSecretsOrThrow()
+        public FileOperationData GetFileSecretsOrThrow()
         {
             return metadata.TryGetFileElseFolder(out _, out var fileSecrets, out var folderNode, out _)
                 ? fileSecrets

@@ -2,13 +2,10 @@ using Proton.Sdk.Caching;
 
 namespace Proton.Drive.Sdk.Account.Caching;
 
-internal sealed class AccountClientCache(
-    ICacheRepository entityCacheRepository,
-    ICacheRepository secretCacheRepository,
-    ISessionSecretCache sessionSecretCache) : IAccountClientCache
+internal sealed class AccountClientCache(ICacheRepository cacheRepository, ISessionSecretCache sessionSecretCache) : IAccountClientCache
 {
-    public IAccountEntityCache Entities { get; } = new AccountEntityCache(entityCacheRepository);
-    public IAccountSecretCache Secrets { get; } = new AccountSecretCache(secretCacheRepository);
+    public IAccountEntityCache Entities { get; } = new AccountEntityCache(cacheRepository);
+    public IAccountSecretCache Secrets { get; } = new AccountSecretCache(cacheRepository);
     public ISessionSecretCache SessionSecrets { get; } = sessionSecretCache;
     public IPublicKeyCache PublicKeys { get; } = new PublicKeyCache();
 }

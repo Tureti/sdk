@@ -35,7 +35,6 @@ internal static class InteropFileUploader
             thumbnails,
             (progress, total) => progressAction.InvokeProgressUpdate(bindingsHandle, progress, total),
             expectedSha1Provider,
-            forPhotos: false,
             cancellationToken);
 
         return new Int64Value { Value = Interop.AllocHandle(uploadController) };
@@ -65,7 +64,6 @@ internal static class InteropFileUploader
             thumbnails,
             (progress, total) => progressAction.InvokeProgressUpdate(bindingsHandle, progress, total),
             expectedSha1Provider,
-            forPhotos: false,
             cancellationToken);
 
         return new Int64Value { Value = Interop.AllocHandle(uploadController) };

@@ -36,12 +36,8 @@ internal static class InteropProtonPhotosClient
 
         var accountClient = new InteropProtonAccountClient(bindingsHandle, new InteropAction<nint, InteropArray<byte>, nint>(request.AccountRequestAction));
 
-        var entityCacheRepository = request.HasEntityCachePath
-            ? SqliteCacheRepository.OpenFile(request.EntityCachePath)
-            : SqliteCacheRepository.OpenInMemory();
-
-        var secretCacheRepository = request.HasSecretCachePath
-            ? SqliteCacheRepository.OpenFile(request.SecretCachePath)
+        var cacheRepository = request.HasCachePath
+            ? SqliteCacheRepository.OpenFile(request.CachePath)
             : SqliteCacheRepository.OpenInMemory();
 
         ITelemetry telemetry = request.Telemetry.ToTelemetry(bindingsHandle) is { } interopTelemetry
@@ -55,8 +51,7 @@ internal static class InteropProtonPhotosClient
         var client = new ProtonPhotosClient(
             httpClientFactory,
             accountClient,
-            entityCacheRepository,
-            secretCacheRepository,
+            cacheRepository,
             featureFlagProvider,
             telemetry,
             protonDriveClientOptions);

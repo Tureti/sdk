@@ -41,11 +41,8 @@ public actor ProtonPhotosClient: Sendable, ProtonSDKClient {
             }
             $0.accountRequestAction = Int64(ObjectHandle(callback: cCompatibleAccountClientRequest))
 
-            if let entityCachePath = configuration.entityCachePath {
-                $0.entityCachePath = entityCachePath
-            }
-            if let secretCachePath = configuration.secretCachePath {
-                $0.secretCachePath = secretCachePath
+            if let cachePath = configuration.cachePath {
+                $0.cachePath = cachePath
             }
 
             $0.telemetry = Proton_Drive_Sdk_Telemetry.with {

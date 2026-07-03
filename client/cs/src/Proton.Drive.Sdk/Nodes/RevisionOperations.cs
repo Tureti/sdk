@@ -20,15 +20,14 @@ internal static class RevisionOperations
         ProtonDriveClient client,
         RevisionUid revisionUid,
         long queueToken,
-        bool forPhotos,
         CancellationToken cancellationToken)
     {
         var (fileUid, revisionId) = revisionUid;
 
-        var secretsTask = FileOperations.GetSecretsAsync(
+        var operationDataTask = FileOperations.GetOperationDataAsync(
             client,
             revisionUid.NodeUid,
-            forPhotos,
+            knownShareAndKey: null,
             cancellationToken).AsTask();
 
         var revisionTask = client.Api.Files.GetRevisionAsync(
@@ -40,13 +39,13 @@ internal static class RevisionOperations
             withoutBlockUrls: false,
             cancellationToken).AsTask();
 
-        await Task.WhenAll(secretsTask, revisionTask).ConfigureAwait(false);
+        await Task.WhenAll(operationDataTask, revisionTask).ConfigureAwait(false);
 
-        var fileSecrets = await secretsTask.ConfigureAwait(false);
+        var operationData = await operationDataTask.ConfigureAwait(false);
         var revisionResponse = await revisionTask.ConfigureAwait(false);
 
-        var key = fileSecrets.Key ?? throw new InvalidOperationException($"Node key not available for file {revisionUid.NodeUid}");
-        var contentKey = fileSecrets.ContentKey ?? throw new InvalidOperationException($"Content key not available for file {revisionUid.NodeUid}");
+        var key = operationData.Key ?? throw new InvalidOperationException($"Node key not available for file {revisionUid.NodeUid}");
+        var contentKey = operationData.ContentKey ?? throw new InvalidOperationException($"Content key not available for file {revisionUid.NodeUid}");
 
         var claimedSize = await GetClaimedSizeAsync(client, revisionResponse.Revision, key, cancellationToken).ConfigureAwait(false);
 

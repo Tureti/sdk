@@ -86,7 +86,6 @@ public sealed partial class PhotosFileDownloader : IFileDownloader
                 _client.DriveClient,
                 fileNode.ActiveRevision.Uid,
                 _queueToken,
-                forPhotos: true,
                 cancellationToken).ConfigureAwait(false);
 
             downloadStateTaskCompletionSource.SetResult(state);

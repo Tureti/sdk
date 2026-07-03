@@ -5,55 +5,55 @@ namespace Proton.Drive.Sdk.Nodes;
 
 internal readonly struct NodeMetadata
 {
-    private readonly (FileNode Node, FileSecrets Secrets)? _fileAndSecrets;
-    private readonly (FolderNode Node, FolderSecrets Secrets)? _folderAndSecrets;
+    private readonly (FileNode Node, FileOperationData Secrets)? _fileAndSecrets;
+    private readonly (FolderNode Node, FolderOperationData Secrets)? _folderAndSecrets;
 
-    public NodeMetadata(FileNode node, FileSecrets secrets, ShareId? membershipShareId, ReadOnlyMemory<byte> nameHashDigest)
+    public NodeMetadata(FileNode node, FileOperationData operationData, ShareId? membershipShareId, ReadOnlyMemory<byte> nameHashDigest)
     {
-        _fileAndSecrets = (node, secrets);
+        _fileAndSecrets = (node, operationData);
         MembershipShareId = membershipShareId;
         NameHashDigest = nameHashDigest;
     }
 
-    public NodeMetadata(FolderNode node, FolderSecrets secrets, ShareId? membershipShareId, ReadOnlyMemory<byte> nameHashDigest)
+    public NodeMetadata(FolderNode node, FolderOperationData operationData, ShareId? membershipShareId, ReadOnlyMemory<byte> nameHashDigest)
     {
-        _folderAndSecrets = (node, secrets);
+        _folderAndSecrets = (node, operationData);
         MembershipShareId = membershipShareId;
         NameHashDigest = nameHashDigest;
     }
 
     public Node Node => _fileAndSecrets?.Node ?? (Node)_folderAndSecrets!.Value.Node;
-    public NodeSecrets Secrets => _fileAndSecrets?.Secrets ?? (NodeSecrets)_folderAndSecrets!.Value.Secrets;
+    public NodeOperationData OperationData => _fileAndSecrets?.Secrets ?? (NodeOperationData)_folderAndSecrets!.Value.Secrets;
     public ShareId? MembershipShareId { get; }
     public ReadOnlyMemory<byte> NameHashDigest { get; }
 
-    public static NodeMetadata FromFile(FileMetadata m) => new(m.Node, m.Secrets, m.MembershipShareId, m.NameHashDigest);
-    public static NodeMetadata FromFolder(FolderMetadata m) => new(m.Node, m.Secrets, m.MembershipShareId, m.NameHashDigest);
+    public static NodeMetadata FromFile(FileMetadata m) => new(m.Node, m.OperationData, m.MembershipShareId, m.NameHashDigest);
+    public static NodeMetadata FromFolder(FolderMetadata m) => new(m.Node, m.OperationData, m.MembershipShareId, m.NameHashDigest);
 
     public bool TryGetFileElseFolder(
         [MaybeNullWhen(false)] out FileNode fileNode,
-        [MaybeNullWhen(false)] out FileSecrets fileSecrets,
+        [MaybeNullWhen(false)] out FileOperationData fileOperationData,
         [MaybeNullWhen(true)] out FolderNode folderNode,
-        [MaybeNullWhen(true)] out FolderSecrets folderSecrets)
+        [MaybeNullWhen(true)] out FolderOperationData folderOperationData)
     {
         if (_fileAndSecrets is null)
         {
-            (folderNode, folderSecrets) = _folderAndSecrets!.Value;
+            (folderNode, folderOperationData) = _folderAndSecrets!.Value;
             fileNode = null;
-            fileSecrets = null;
+            fileOperationData = null;
             return false;
         }
 
-        (fileNode, fileSecrets) = _fileAndSecrets.Value;
+        (fileNode, fileOperationData) = _fileAndSecrets.Value;
         folderNode = null;
-        folderSecrets = null;
+        folderOperationData = null;
         return true;
     }
 
-    public void Deconstruct(out Node node, out NodeSecrets secrets, out ShareId? membershipShareId, out ReadOnlyMemory<byte> nameHashDigest)
+    public void Deconstruct(out Node node, out NodeOperationData operationData, out ShareId? membershipShareId, out ReadOnlyMemory<byte> nameHashDigest)
     {
         node = Node;
-        secrets = Secrets;
+        operationData = OperationData;
         membershipShareId = MembershipShareId;
         nameHashDigest = NameHashDigest;
     }

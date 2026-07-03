@@ -79,14 +79,11 @@ public actor ProtonDriveClient: Sendable, ProtonSDKClient {
 
             $0.featureEnabledFunction = Int64(ObjectHandle(callback: cCompatibleFeatureFlagProviderCallback))
 
-            if let entityCachePath = configuration.entityCachePath {
-                $0.entityCachePath = entityCachePath
+            if let cachePath = configuration.cachePath {
+                $0.cachePath = cachePath
             }
-            if let secretCachePath = configuration.secretCachePath {
-                $0.secretCachePath = secretCachePath
-            }
-            if let secretCacheEncryptionKey = configuration.secretCacheEncryptionKey {
-                $0.secretCacheEncryptionKey = secretCacheEncryptionKey
+            if let cacheEncryptionKey = configuration.cacheEncryptionKey {
+                $0.cacheEncryptionKey = cacheEncryptionKey
             }
 
             $0.clientOptions = Proton_Drive_Sdk_ProtonDriveClientOptions.with {

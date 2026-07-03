@@ -393,25 +393,24 @@ message DriveClientCreateRequest {
     // Pointer to C function that will be called:
     // void handle_account_request(intptr_t bindings_handle, ByteArray http_request, intptr_t sdk_handle)
     //   bindings_handle: handle for the bindings
-    //   account_request: Protobuf message of type proton.drive.sdk.AccountRequest carrying the request data
+    //   account_request: Protobuf message of type AccountRequest carrying the request data
     //   sdk_handle: handle for the SDK
     int64 account_request_action = 4;
 
-    string entity_cache_path = 5; // Optional
-    string secret_cache_path = 6; // Optional
+    string cache_path = 5; // Optional
 
-    Telemetry telemetry = 7; // Optional
-    
+    Telemetry telemetry = 6; // Optional
+
     // Pointer to C function that will be called to check feature flags:
     // int is_feature_flag_enabled(intptr_t bindings_handle, ByteArray flag_name)
     //   bindings_handle: handle for the bindings
     //   flag_name: UTF-8 encoded feature flag name
     //   returns: 0 for disabled, non-zero for enabled
-    int64 feature_enabled_function = 8; // Optional
+    int64 feature_enabled_function = 7; // Optional
 
-    // Encryption key used to encrypt the secrets cache. Must be a 32-byte
-    // random key. If a null value is provided, secrets cache won't be encrypted.
-    bytes secret_cache_encryption_key = 9; // Optional
+    // Encryption key used to encrypt the cache. Must be a 32-byte
+    // random key. If a null value is provided, cache won't be encrypted.
+    bytes cache_encryption_key = 8; // Optional
 }
 
 // The response must not have a value.
@@ -765,21 +764,20 @@ message DrivePhotosClientCreateRequest {
     // Pointer to C function that will be called:
     // void handle_account_request(intptr_t bindings_handle, ByteArray http_request, intptr_t sdk_handle)
     //   bindings_handle: handle for the bindings
-    //   account_request: Protobuf message of type proton.drive.sdk.AccountRequest carrying the request data
+    //   account_request: Protobuf message of type AccountRequest carrying the request data
     //   sdk_handle: handle for the SDK
     int64 account_request_action = 4;
 
-    string entity_cache_path = 5; // Optional
-    string secret_cache_path = 6; // Optional
+    string cache_path = 5; // Optional
 
-    Telemetry telemetry = 7; // Optional
+    Telemetry telemetry = 6; // Optional
 
     // Pointer to C function that will be called to check feature flags:
     // int is_feature_flag_enabled(intptr_t bindings_handle, ByteArray flag_name)
     //   bindings_handle: handle for the bindings
     //   flag_name: UTF-8 encoded feature flag name
     //   returns: 0 for disabled, non-zero for enabled
-    int64 feature_enabled_function = 8; // Optional
+    int64 feature_enabled_function = 7; // Optional
 }
 
 // The response must not have a value.

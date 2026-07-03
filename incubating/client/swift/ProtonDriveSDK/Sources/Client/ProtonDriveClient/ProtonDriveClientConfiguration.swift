@@ -32,9 +32,8 @@ public struct ProtonDriveClientConfiguration: Sendable {
     let downloadOperationalResilience: OperationalResilience
     let uploadOperationalResilience: OperationalResilience
     
-    let entityCachePath: String?
-    let secretCachePath: String?
-    let secretCacheEncryptionKey: Data?
+    let cachePath: String?
+    let cacheEncryptionKey: Data?
 
     let boundStreamsCreator: @Sendable () throws -> (InputStream, OutputStream, Int)
     let downloadStreamCreator: @Sendable (URLSession.AsyncBytes) -> AnyAsyncSequence<UInt8>
@@ -49,9 +48,8 @@ public struct ProtonDriveClientConfiguration: Sendable {
         uploadOperationalResilience: OperationalResilience = BasicOperationalResilience.default,
         boundStreamsCreator: @Sendable @escaping () throws -> (InputStream, OutputStream, Int) = defaultBoundStreamsCreator,
         downloadStreamCreator: @Sendable @escaping (URLSession.AsyncBytes) -> AnyAsyncSequence<UInt8> = defaultDownloadStreamCreator,
-        entityCachePath: String? = nil, // if not set, in-memory cache is used
-        secretCachePath: String? = nil, // if not set, in-memory cache is used
-        secretCacheEncryptionKey: Data? = nil // if not set, no encryption will be used for secrets cache
+        cachePath: String? = nil, // if not set, in-memory cache is used
+        cacheEncryptionKey: Data? = nil // if not set, no encryption will be used for cache
     ) {
         self.baseURL = baseURL
         self.clientUID = clientUID
@@ -62,8 +60,7 @@ public struct ProtonDriveClientConfiguration: Sendable {
         self.uploadOperationalResilience = uploadOperationalResilience
         self.boundStreamsCreator = boundStreamsCreator
         self.downloadStreamCreator = downloadStreamCreator
-        self.entityCachePath = entityCachePath
-        self.secretCachePath = secretCachePath
-        self.secretCacheEncryptionKey = secretCacheEncryptionKey
+        self.cachePath = cachePath
+        self.cacheEncryptionKey = cacheEncryptionKey
     }
 }

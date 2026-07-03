@@ -29,11 +29,11 @@ internal sealed class NewFileDraftProvider : IRevisionDraftProvider
         _overrideExistingDraftByOtherClient = overrideExistingDraftByOtherClient;
     }
 
-    public async ValueTask<RevisionDraft> GetDraftAsync(long intendedUploadSize, bool forPhotos, CancellationToken cancellationToken)
+    public async ValueTask<RevisionDraft> GetDraftAsync(long intendedUploadSize, CancellationToken cancellationToken)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(intendedUploadSize);
 
-        var (parentKey, parentHashKey) = await FolderOperations.GetKeyAndHashKeyAsync(_client, _parentUid, forPhotos, cancellationToken).ConfigureAwait(false);
+        var (parentKey, parentHashKey) = await FolderOperations.GetKeyAndHashKeyAsync(_client, _parentUid, cancellationToken).ConfigureAwait(false);
 
         var membershipAddress = await NodeOperations.GetMembershipAddressAsync(_client, _parentUid, cancellationToken).ConfigureAwait(false);
 
@@ -151,8 +151,9 @@ internal sealed class NewFileDraftProvider : IRevisionDraftProvider
             {
                 var response = await _client.Api.Files.CreateFileAsync(_parentUid.VolumeId, request, cancellationToken).ConfigureAwait(false);
 
-                var fileSecrets = new FileSecrets
+                var operationData = new FileOperationData
                 {
+                    ParentUid = _parentUid,
                     Key = nodeKey,
                     PassphraseSessionKey = passphraseSessionKey,
                     NameSessionKey = nameSessionKey,
@@ -162,7 +163,7 @@ internal sealed class NewFileDraftProvider : IRevisionDraftProvider
                 var draftNodeUid = new NodeUid(_parentUid.VolumeId, response.Identifiers.LinkId);
                 var draftRevisionUid = new RevisionUid(draftNodeUid, response.Identifiers.RevisionId);
 
-                await _client.Cache.Secrets.SetFileSecretsAsync(draftNodeUid, fileSecrets, cancellationToken).ConfigureAwait(false);
+                await _client.Cache.SetNodeOperationDataAsync(draftNodeUid, operationData, cancellationToken).ConfigureAwait(false);
 
                 result = (draftRevisionUid, nodeKey, contentKey);
             }

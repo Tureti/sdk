@@ -4,11 +4,6 @@ using Proton.Sdk;
 
 namespace Proton.Drive.Sdk.Nodes;
 
-[JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
-[JsonDerivedType(typeof(FolderNode), typeDiscriminator: "folder")]
-[JsonDerivedType(typeof(FileNode), typeDiscriminator: "file")]
-[JsonDerivedType(typeof(FileDraftNode), typeDiscriminator: "fileDraft")]
-[JsonDerivedType(typeof(PhotoNode), typeDiscriminator: "photo")]
 public abstract record Node
 {
     public required NodeUid Uid { get; init; }

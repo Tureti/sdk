@@ -6,7 +6,6 @@ using Proton.Drive.Sdk.Account.Api.Keys;
 using Proton.Drive.Sdk.Account.Authentication;
 using Proton.Drive.Sdk.Account.Caching;
 using Proton.Drive.Sdk.Account.Users;
-using Proton.Sdk.Caching;
 using Proton.Sdk.Telemetry;
 
 namespace Proton.Drive.Sdk.Account;
@@ -40,7 +39,7 @@ public sealed class ProtonApiSession
         PasswordMode = passwordMode;
         AccountBaseUrl = accountBaseUrl;
         ClientConfiguration = clientConfiguration;
-        SessionSecretCache = new SessionSecretCache(clientConfiguration.SecretCacheRepository);
+        SessionSecretCache = new SessionSecretCache(clientConfiguration.CacheRepository);
     }
 
     public event Action? Ended
@@ -168,8 +167,7 @@ public sealed class ProtonApiSession
         bool isWaitingForSecondFactorCode,
         PasswordMode passwordMode,
         Uri accountBaseUrl,
-        string appVersion,
-        ICacheRepository secretCacheRepository)
+        string appVersion)
     {
         return Resume(
             sessionId,
@@ -182,7 +180,6 @@ public sealed class ProtonApiSession
             passwordMode,
             accountBaseUrl,
             appVersion,
-            secretCacheRepository,
             new ProtonClientOptions());
     }
 
@@ -197,11 +194,8 @@ public sealed class ProtonApiSession
         PasswordMode passwordMode,
         Uri? accountBaseUrl,
         string appVersion,
-        ICacheRepository secretCacheRepository,
         ProtonClientOptions options)
     {
-        options = options with { SecretCacheRepository = secretCacheRepository };
-
         var configuration = new ProtonClientConfiguration(appVersion, options);
 
         var logger = configuration.Telemetry.GetLogger<ProtonApiSession>();

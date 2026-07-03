@@ -29,58 +29,23 @@ public sealed class ProtonDriveClient
     public ProtonDriveClient(
         IHttpClientFactory httpClientFactory,
         IProtonAccountClient accountClient,
-        ICacheRepository entityCacheRepository,
-        ICacheRepository secretCacheRepository,
+        ICacheRepository cacheRepository,
         IFeatureFlagProvider featureFlagProvider,
         ITelemetry telemetry,
         ProtonDriveClientOptions? options = null)
-        : this(
-            new SdkHttpClientFactoryDecorator(httpClientFactory, options?.BindingsLanguage).CreateClientWithTimeout(
-                options?.DefaultApiTimeoutSecondsOverride ?? ProtonApiDefaults.DefaultTimeoutSeconds),
-            new SdkHttpClientFactoryDecorator(httpClientFactory, options?.BindingsLanguage).CreateClientWithTimeout(
-                options?.StorageApiTimeoutSecondsOverride ?? ProtonDriveDefaults.StorageApiTimeoutSeconds),
-            accountClient,
-            new DriveClientCache(entityCacheRepository, secretCacheRepository),
-            featureFlagProvider,
-            telemetry,
-            (defaultApiHttpClient, storageApiHttpClient) => new DriveApiClients(defaultApiHttpClient, storageApiHttpClient),
-            options?.Uid,
-            options?.DegreeOfBlockTransferParallelismOverride)
-    {
-    }
-
-    internal ProtonDriveClient(
-        IHttpClientFactory httpClientFactory,
-        IProtonAccountClient accountClient,
-        ICacheRepository entityCacheRepository,
-        ICacheRepository secretCacheRepository,
-        IFeatureFlagProvider featureFlagProvider,
-        ITelemetry telemetry,
-        Func<HttpClient, HttpClient, IDriveApiClients> driveApiClientsFactory,
-        ProtonDriveClientOptions? options = null)
-        : this(
-            new SdkHttpClientFactoryDecorator(httpClientFactory, options?.BindingsLanguage).CreateClientWithTimeout(
-                options?.DefaultApiTimeoutSecondsOverride ?? ProtonApiDefaults.DefaultTimeoutSeconds),
-            new SdkHttpClientFactoryDecorator(httpClientFactory, options?.BindingsLanguage).CreateClientWithTimeout(
-                options?.StorageApiTimeoutSecondsOverride ?? ProtonDriveDefaults.StorageApiTimeoutSeconds),
-            accountClient,
-            new DriveClientCache(entityCacheRepository, secretCacheRepository),
-            featureFlagProvider,
-            telemetry,
-            driveApiClientsFactory,
-            options?.Uid,
-            options?.DegreeOfBlockTransferParallelismOverride)
+        : this(CreationParameters.Create(httpClientFactory, accountClient, cacheRepository, featureFlagProvider, telemetry, options))
     {
     }
 
     internal ProtonDriveClient(
         IProtonAccountClient accountClient,
         IDriveApiClients api,
-        IDriveClientCache cache,
+        INodeProvider nodeProvider,
+        IDriveCache cache,
         IBlockVerifierFactory blockVerifierFactory,
         IFeatureFlagProvider featureFlagProvider,
         ITelemetry telemetry,
-        string? uid,
+        string? uid = null,
         int? degreeOfBlockTransferParallelism = null)
     {
         Uid = uid ?? Guid.NewGuid().ToString();
@@ -91,6 +56,8 @@ public sealed class ProtonDriveClient
         BlockVerifierFactory = blockVerifierFactory;
         Telemetry = telemetry;
         FeatureFlagProvider = featureFlagProvider;
+
+        NodeProvider = nodeProvider;
 
         var maxDegreeOfBlockTransferParallelism = degreeOfBlockTransferParallelism ?? DefaultDegreeOfBlockTransferParallelism;
 
@@ -104,25 +71,17 @@ public sealed class ProtonDriveClient
         PgpConfiguration.DefaultAeadStreamingChunkLength = PgpDefaults.AeadStreamingChunkLength;
     }
 
-    private ProtonDriveClient(
-        HttpClient defaultApiHttpClient,
-        HttpClient storageApiHttpClient,
-        IProtonAccountClient accountClient,
-        IDriveClientCache cache,
-        IFeatureFlagProvider featureFlagProvider,
-        ITelemetry telemetry,
-        Func<HttpClient, HttpClient, IDriveApiClients> driveApiClientsFactory,
-        string? uid,
-        int? degreeOfBlockTransferParallelism = null)
+    private ProtonDriveClient(CreationParameters parameters)
         : this(
-            accountClient,
-            driveApiClientsFactory.Invoke(defaultApiHttpClient, storageApiHttpClient),
-            cache,
-            new BlockVerifierFactory(defaultApiHttpClient),
-            featureFlagProvider,
-            telemetry,
-            uid,
-            degreeOfBlockTransferParallelism)
+            parameters.AccountClient,
+            parameters.Api,
+            parameters.NodeProvider,
+            parameters.Cache,
+            parameters.BlockVerifierFactory,
+            parameters.FeatureFlagProvider,
+            parameters.Telemetry,
+            parameters.Uid,
+            parameters.DegreeOfBlockTransferParallelism)
     {
     }
 
@@ -133,10 +92,12 @@ public sealed class ProtonDriveClient
 
     internal IProtonAccountClient Account { get; }
     internal IDriveApiClients Api { get; }
-    internal IDriveClientCache Cache { get; }
+    internal IDriveCache Cache { get; }
     internal IBlockVerifierFactory BlockVerifierFactory { get; }
     internal ITelemetry Telemetry { get; }
     internal IFeatureFlagProvider FeatureFlagProvider { get; }
+
+    internal INodeProvider NodeProvider { get; }
 
     internal TransferQueue UploadQueue { get; }
     internal TransferQueue DownloadQueue { get; }
@@ -158,13 +119,13 @@ public sealed class ProtonDriveClient
     public ValueTask<Node?> GetNodeAsync(NodeUid nodeUid, CancellationToken cancellationToken)
     {
         return NodeOperations
-            .EnumerateNodesAsync(this, nodeUid.VolumeId, [nodeUid.LinkId], forPhotos: false, cancellationToken)
+            .EnumerateNodesAsync(this, nodeUid.VolumeId, [nodeUid.LinkId], cancellationToken)
             .FirstOrDefaultAsync(cancellationToken);
     }
 
     public IAsyncEnumerable<Node> EnumerateNodesAsync(IAsyncEnumerable<NodeUid> nodeUids, CancellationToken cancellationToken = default)
     {
-        return NodeOperations.EnumerateNodesAsync(this, nodeUids, forPhotos: false, cancellationToken);
+        return NodeOperations.EnumerateNodesAsync(this, nodeUids, cancellationToken);
     }
 
     public ValueTask<FolderNode> CreateFolderAsync(NodeUid parentId, string name, DateTime? lastModificationTime, CancellationToken cancellationToken)
@@ -182,7 +143,7 @@ public sealed class ProtonDriveClient
         ThumbnailType type,
         CancellationToken cancellationToken = default)
     {
-        return FileOperations.EnumerateThumbnailsAsync(this, fileUids, type, forPhotos: false, cancellationToken);
+        return FileOperations.EnumerateThumbnailsAsync(this, fileUids, type, cancellationToken);
     }
 
     [Experimental("TryTransferQueuing")]
@@ -349,5 +310,45 @@ public sealed class ProtonDriveClient
     public ValueTask DeleteDeviceAsync(DeviceUid deviceUid, CancellationToken cancellationToken)
     {
         return DeviceOperations.DeleteDeviceAsync(this, deviceUid, cancellationToken);
+    }
+
+    private readonly record struct CreationParameters(
+        IProtonAccountClient AccountClient,
+        IDriveApiClients Api,
+        INodeProvider NodeProvider,
+        IDriveCache Cache,
+        IBlockVerifierFactory BlockVerifierFactory,
+        IFeatureFlagProvider FeatureFlagProvider,
+        ITelemetry Telemetry,
+        string? Uid = null,
+        int? DegreeOfBlockTransferParallelism = null)
+    {
+        public static CreationParameters Create(
+            IHttpClientFactory httpClientFactory,
+            IProtonAccountClient accountClient,
+            ICacheRepository cacheRepository,
+            IFeatureFlagProvider featureFlagProvider,
+            ITelemetry telemetry,
+            ProtonDriveClientOptions? options = null)
+        {
+            var defaultHttpClient = new SdkHttpClientFactoryDecorator(httpClientFactory, options?.BindingsLanguage).CreateClientWithTimeout(
+                options?.DefaultApiTimeoutSecondsOverride ?? ProtonApiDefaults.DefaultTimeoutSeconds);
+
+            var storageHttpClient = new SdkHttpClientFactoryDecorator(httpClientFactory, options?.BindingsLanguage).CreateClientWithTimeout(
+                options?.StorageApiTimeoutSecondsOverride ?? ProtonDriveDefaults.StorageApiTimeoutSeconds);
+
+            var api = new DriveApiClients(defaultHttpClient, storageHttpClient);
+
+            return new CreationParameters(
+                accountClient,
+                api,
+                new DriveNodeProvider(api),
+                new DriveCache(cacheRepository),
+                new BlockVerifierFactory(defaultHttpClient),
+                featureFlagProvider,
+                telemetry,
+                options?.Uid,
+                options?.DegreeOfBlockTransferParallelismOverride);
+        }
     }
 }
