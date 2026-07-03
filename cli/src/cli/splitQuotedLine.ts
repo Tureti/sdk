@@ -7,13 +7,14 @@ export class ReplUnclosedQuoteError extends Error {
 }
 
 /**
- * Split a line into arguments like a POSIX shell: double quotes group text; spaces inside quotes are literal.
- * Inside double quotes, `\"` and `\\` are escapes. Adjacent quoted and unquoted segments form one word (e.g. `ab"c d"` → `abc d`).
+ * Split a line into arguments like a POSIX shell: quotes group text; spaces inside quotes are literal.
+ * Inside double quotes, `\"` and `\\` are escapes. Single-quoted text is literal (no escapes).
+ * Adjacent quoted and unquoted segments form one word (e.g. `ab"c d"` → `abc d`).
  */
 export function splitQuotedLine(line: string): string[] {
     const result: string[] = [];
     let current = '';
-    let inQuote = false;
+    let inQuote: false | '"' | "'" = false;
     let i = 0;
 
     while (i < line.length && (line[i] === ' ' || line[i] === '\t')) {
@@ -22,7 +23,7 @@ export function splitQuotedLine(line: string): string[] {
 
     while (i < line.length) {
         const c = line[i];
-        if (inQuote) {
+        if (inQuote === '"') {
             if (c === '\\' && i + 1 < line.length && (line[i + 1] === '"' || line[i + 1] === '\\')) {
                 current += line[i + 1];
                 i += 2;
@@ -37,8 +38,23 @@ export function splitQuotedLine(line: string): string[] {
             i++;
             continue;
         }
+        if (inQuote === "'") {
+            if (c === "'") {
+                inQuote = false;
+                i++;
+                continue;
+            }
+            current += c;
+            i++;
+            continue;
+        }
         if (c === '"') {
-            inQuote = true;
+            inQuote = '"';
+            i++;
+            continue;
+        }
+        if (c === "'") {
+            inQuote = "'";
             i++;
             continue;
         }
