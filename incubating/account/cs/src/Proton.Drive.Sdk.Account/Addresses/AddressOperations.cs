@@ -10,38 +10,29 @@ namespace Proton.Drive.Sdk.Account.Addresses;
 
 internal static class AddressOperations
 {
-    public static async ValueTask<IReadOnlyList<Address>> GetCurrentUserAddressesAsync(ProtonAccountClient client, CancellationToken cancellationToken)
+    public static async ValueTask<Address> GetCurrentUserDefaultAddressAsync(ProtonAccountClient client, CancellationToken cancellationToken)
     {
-        var result = await client.Cache.Entities.TryGetCurrentUserAddressesAsync(cancellationToken).ConfigureAwait(false);
+        var defaultAddressId = await client.Cache.Entities.TryGetCurrentUserDefaultAddressIdAsync(cancellationToken).ConfigureAwait(false);
 
-        if (result is null)
+        if (defaultAddressId is not null)
         {
-            var addressListResponse = await client.Api.Addresses.GetAddressesAsync(cancellationToken).ConfigureAwait(false);
-
-            var addresses = new List<Address>(addressListResponse.Addresses.Count);
-
-            var userKeys = await client.GetUserKeysAsync(cancellationToken).ConfigureAwait(false);
-
-            foreach (var dto in addressListResponse.Addresses)
-            {
-                try
-                {
-                    var address = await ConvertFromDtoAsync(client, dto, userKeys, cancellationToken).ConfigureAwait(false);
-
-                    addresses.Add(address);
-                }
-                catch (Exception e)
-                {
-                    client.Logger.LogError(e, "Failed to load address {AddressId}", dto.Id);
-                }
-            }
-
-            await client.Cache.Entities.SetCurrentUserAddressesAsync(addresses, cancellationToken).ConfigureAwait(false);
-
-            result = addresses;
+            return await GetAddressAsync(client, defaultAddressId.Value, cancellationToken).ConfigureAwait(false);
         }
 
-        return result;
+        var addressListResponse = await client.Api.Addresses.GetAddressesAsync(cancellationToken).ConfigureAwait(false);
+
+        if (addressListResponse.Addresses.Count == 0)
+        {
+            throw new ProtonApiException("User has no address");
+        }
+
+        await CacheAddressesFromListResponseAsync(client, addressListResponse, cancellationToken).ConfigureAwait(false);
+
+        defaultAddressId = addressListResponse.Addresses[0].Id;
+
+        await client.Cache.Entities.SetCurrentUserDefaultAddressIdAsync(defaultAddressId.Value, cancellationToken).ConfigureAwait(false);
+
+        return await GetAddressAsync(client, defaultAddressId.Value, cancellationToken).ConfigureAwait(false);
     }
 
     public static async ValueTask<Address> GetAddressAsync(ProtonAccountClient client, AddressId addressId, CancellationToken cancellationToken)
@@ -60,18 +51,6 @@ internal static class AddressOperations
         }
 
         return address;
-    }
-
-    public static async ValueTask<Address> GetCurrentUserDefaultAddressAsync(ProtonAccountClient client, CancellationToken cancellationToken)
-    {
-        var addresses = await GetCurrentUserAddressesAsync(client, cancellationToken).ConfigureAwait(false);
-
-        if (addresses.Count == 0)
-        {
-            throw new ProtonApiException("User has no address");
-        }
-
-        return addresses.OrderBy(x => x.Order).First();
     }
 
     public static async ValueTask<IReadOnlyList<PgpPrivateKey>> GetAddressPrivateKeysAsync(
@@ -108,17 +87,6 @@ internal static class AddressOperations
         return addressKeys[address.PrimaryKeyIndex];
     }
 
-    public static async ValueTask<PgpPrivateKey> GetAddressPrivateKeyAsync(
-        ProtonAccountClient client,
-        AddressId addressId,
-        int index,
-        CancellationToken cancellationToken)
-    {
-        var addressKeys = await GetAddressPrivateKeysAsync(client, addressId, cancellationToken).ConfigureAwait(false);
-
-        return addressKeys[index];
-    }
-
     public static async ValueTask<IReadOnlyList<PgpPublicKey>> GetPublicKeysAsync(
         ProtonAccountClient client,
         string emailAddress,
@@ -151,6 +119,28 @@ internal static class AddressOperations
         }
 
         return cachedPublicKeys;
+    }
+
+    private static async ValueTask CacheAddressesFromListResponseAsync(
+        ProtonAccountClient client,
+        AddressListResponse addressListResponse,
+        CancellationToken cancellationToken)
+    {
+        var userKeys = await client.GetUserKeysAsync(cancellationToken).ConfigureAwait(false);
+
+        foreach (var dto in addressListResponse.Addresses)
+        {
+            try
+            {
+                var address = await ConvertFromDtoAsync(client, dto, userKeys, cancellationToken).ConfigureAwait(false);
+
+                await client.Cache.Entities.SetAddressAsync(address, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                client.Logger.LogError(e, "Failed to load address {AddressId}", dto.Id);
+            }
+        }
     }
 
     private static async ValueTask<Address> ConvertFromDtoAsync(

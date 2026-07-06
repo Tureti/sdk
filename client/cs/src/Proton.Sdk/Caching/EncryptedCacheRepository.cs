@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 using Proton.Sdk.Cryptography;
@@ -17,21 +16,16 @@ public sealed class EncryptedCacheRepository(ICacheRepository inner, byte[] encr
 
     private static byte[] CacheEncryptionContext => "Drive.EncryptedCacheRepository"u8.ToArray();
 
-    public ValueTask SetAsync(string key, string value, IEnumerable<string> tags, CancellationToken cancellationToken)
+    public ValueTask SetAsync(string key, string value, CancellationToken cancellationToken)
     {
         var encryptedValue = Encrypt(key, value);
 
-        return _inner.SetAsync(key, encryptedValue, tags, cancellationToken);
+        return _inner.SetAsync(key, encryptedValue, cancellationToken);
     }
 
     public ValueTask RemoveAsync(string key, CancellationToken cancellationToken)
     {
         return _inner.RemoveAsync(key, cancellationToken);
-    }
-
-    public ValueTask RemoveByTagAsync(string tag, CancellationToken cancellationToken)
-    {
-        return _inner.RemoveByTagAsync(tag, cancellationToken);
     }
 
     public ValueTask ClearAsync()
@@ -57,30 +51,6 @@ public sealed class EncryptedCacheRepository(ICacheRepository inner, byte[] encr
         return null;
     }
 
-    public async IAsyncEnumerable<(string Key, string Value)> GetByTagsAsync(
-        IEnumerable<string> tags,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
-    {
-        await foreach (var (key, encryptedValue) in _inner.GetByTagsAsync(tags, cancellationToken).ConfigureAwait(false))
-        {
-            string decryptedValue;
-
-            try
-            {
-                decryptedValue = Decrypt(key, encryptedValue);
-            }
-            catch (AuthenticationTagMismatchException)
-            {
-                // If the tag is invalid, we assume either the cache has been tampered with or the
-                // encryption key has changed. Clear the cache and behave as if we had no value in cache.
-                await _inner.ClearAsync().ConfigureAwait(false);
-                yield break;
-            }
-
-            yield return (key, decryptedValue);
-        }
-    }
-
     public ValueTask DisposeAsync()
     {
         return _inner.DisposeAsync();
@@ -101,6 +71,7 @@ public sealed class EncryptedCacheRepository(ICacheRepository inner, byte[] encr
         return stream.ToArray();
     }
 
+    // TODO: use stack allocation when possible
     private string Encrypt(string entryKey, string plaintext)
     {
         var plaintextBytes = Encoding.UTF8.GetBytes(plaintext);
@@ -131,6 +102,7 @@ public sealed class EncryptedCacheRepository(ICacheRepository inner, byte[] encr
         return Convert.ToBase64String(result);
     }
 
+    // TODO: use stack allocation when possible
     private string Decrypt(string entryKey, string encryptedBase64)
     {
         var combined = Convert.FromBase64String(encryptedBase64);

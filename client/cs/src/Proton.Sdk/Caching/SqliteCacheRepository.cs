@@ -14,7 +14,7 @@ public sealed class SqliteCacheRepository : ICacheRepository, IDisposable
         _maxCacheSize = maxCacheSize;
     }
 
-    public static SqliteCacheRepository OpenInMemory(int? maxCacheSize = 1024)
+    public static SqliteCacheRepository OpenInMemory(int? maxCacheSize = 1000)
     {
         // Avoiding SqliteConnectionStringBuilder due to IL2113 warning in AOT scenarios
         var connectionString = $"Data Source={Guid.NewGuid().ToString()};Mode=Memory;Cache=Shared";
@@ -22,7 +22,7 @@ public sealed class SqliteCacheRepository : ICacheRepository, IDisposable
         return Open(connectionString, maxCacheSize);
     }
 
-    public static SqliteCacheRepository OpenFile(string path, int? maxCacheSize = 1024)
+    public static SqliteCacheRepository OpenFile(string path, int? maxCacheSize = 1000)
     {
         // Avoiding SqliteConnectionStringBuilder due to IL2113 warning in AOT scenarios
         var connectionString = $"Data Source=\"{path}\"";
@@ -30,11 +30,11 @@ public sealed class SqliteCacheRepository : ICacheRepository, IDisposable
         return Open(connectionString, maxCacheSize);
     }
 
-    ValueTask ICacheRepository.SetAsync(string key, string value, IEnumerable<string> tags, CancellationToken cancellationToken)
+    ValueTask ICacheRepository.SetAsync(string key, string value, CancellationToken cancellationToken)
     {
         try
         {
-            Set(key, value, tags);
+            Set(key, value);
 
             return ValueTask.CompletedTask;
         }
@@ -49,20 +49,6 @@ public sealed class SqliteCacheRepository : ICacheRepository, IDisposable
         try
         {
             Remove(key);
-
-            return ValueTask.CompletedTask;
-        }
-        catch (Exception e)
-        {
-            return ValueTask.FromException(e);
-        }
-    }
-
-    ValueTask ICacheRepository.RemoveByTagAsync(string tag, CancellationToken cancellationToken)
-    {
-        try
-        {
-            RemoveByTag(tag);
 
             return ValueTask.CompletedTask;
         }
@@ -98,11 +84,6 @@ public sealed class SqliteCacheRepository : ICacheRepository, IDisposable
         }
     }
 
-    IAsyncEnumerable<(string Key, string Value)> ICacheRepository.GetByTagsAsync(IEnumerable<string> tags, CancellationToken cancellationToken)
-    {
-        return GetByTags(tags).ToAsyncEnumerable();
-    }
-
     ValueTask IAsyncDisposable.DisposeAsync()
     {
         Dispose();
@@ -110,7 +91,7 @@ public sealed class SqliteCacheRepository : ICacheRepository, IDisposable
         return ValueTask.CompletedTask;
     }
 
-    public void Set(string key, string value, IEnumerable<string> tags)
+    public void Set(string key, string value)
     {
         using var connection = new SqliteConnection(_connection.ConnectionString);
         connection.Open();
@@ -158,23 +139,6 @@ public sealed class SqliteCacheRepository : ICacheRepository, IDisposable
 
         command.ExecuteNonQuery();
 
-        command.CommandText = "DELETE FROM Tags WHERE Key = @key";
-
-        command.ExecuteNonQuery();
-
-        command.CommandText = "INSERT INTO Tags (Tag, Key) VALUES (@tag, @key)";
-
-        var tagParameter = command.CreateParameter();
-        tagParameter.ParameterName = "@tag";
-        command.Parameters.Add(tagParameter);
-
-        foreach (var tag in tags)
-        {
-            tagParameter.Value = tag;
-
-            command.ExecuteNonQuery();
-        }
-
         transaction.Commit();
     }
 
@@ -187,19 +151,6 @@ public sealed class SqliteCacheRepository : ICacheRepository, IDisposable
 
         command.CommandText = "DELETE FROM Entries WHERE Key = @key";
         command.Parameters.AddWithValue("@key", key);
-
-        command.ExecuteNonQuery();
-    }
-
-    public void RemoveByTag(string tag)
-    {
-        using var connection = new SqliteConnection(_connection.ConnectionString);
-        connection.Open();
-
-        using var command = connection.CreateCommand();
-
-        command.CommandText = "DELETE FROM Entries AS e WHERE EXISTS (SELECT 1 FROM Tags WHERE Tag = @tag AND Key = e.Key)";
-        command.Parameters.AddWithValue("@tag", tag);
 
         command.ExecuteNonQuery();
     }
@@ -249,72 +200,6 @@ public sealed class SqliteCacheRepository : ICacheRepository, IDisposable
 
         transaction.Commit();
         return value;
-    }
-
-    public IEnumerable<(string Key, string Value)> GetByTags(IEnumerable<string> tags)
-    {
-        using var connection = new SqliteConnection(_connection.ConnectionString);
-        connection.Open();
-
-        // Collect all matching entries first (existing query logic)
-        var results = new List<(string Key, string Value)>();
-
-        using (var command = connection.CreateCommand())
-        {
-            command.Connection = connection;
-
-            var i = 0;
-            foreach (var tag in tags)
-            {
-                command.Parameters.AddWithValue($"@tag{i++}", tag);
-            }
-
-            var inClause = string.Join(", ", command.Parameters.Cast<SqliteParameter>().Select(x => x.ParameterName));
-
-            command.CommandText =
-                $"""
-                 SELECT Key, Value
-                 FROM Entries
-                 WHERE Key IN (
-                   SELECT t.Key
-                   FROM Tags t
-                   WHERE t.Tag IN ({inClause})
-                   GROUP BY t.Key
-                   HAVING COUNT(DISTINCT t.Tag) = @tagCount
-                 );
-                 """;
-
-            command.Parameters.AddWithValue("@tagCount", command.Parameters.Count);
-
-            using var reader = command.ExecuteReader();
-            while (reader.Read())
-            {
-                results.Add((reader.GetString(0), reader.GetString(1)));
-            }
-        }
-
-        // Batch update timestamps for all returned keys
-        if (results.Count > 0)
-        {
-            using var updateCommand = connection.CreateCommand();
-            var keyParams = string.Join(",", Enumerable.Range(0, results.Count).Select(i => $"@key{i}"));
-            updateCommand.CommandText =
-                $"UPDATE Entries SET LastAccessedUtc = @timestamp WHERE Key IN ({keyParams})";
-
-            updateCommand.Parameters.AddWithValue("@timestamp", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
-            for (var i = 0; i < results.Count; i++)
-            {
-                updateCommand.Parameters.AddWithValue($"@key{i}", results[i].Key);
-            }
-
-            updateCommand.ExecuteNonQuery();
-        }
-
-        // Return via yield
-        foreach (var result in results)
-        {
-            yield return result;
-        }
     }
 
     public void Dispose()
@@ -399,28 +284,6 @@ public sealed class SqliteCacheRepository : ICacheRepository, IDisposable
         command.ExecuteNonQuery();
 
         command.CommandText = "CREATE INDEX IF NOT EXISTS idx_entries_last_accessed ON Entries(LastAccessedUtc)";
-
-        command.ExecuteNonQuery();
-
-        command.CommandText =
-            """
-            CREATE TABLE IF NOT EXISTS Tags (
-                Tag TEXT NOT NULL,
-                Key TEXT NOT NULL,
-                PRIMARY KEY (Tag, Key),
-                FOREIGN KEY (Key) REFERENCES Entries(Key) ON DELETE CASCADE
-            )
-            """;
-
-        command.ExecuteNonQuery();
-
-        command.CommandText =
-            """
-            CREATE TABLE IF NOT EXISTS QueryableTags (
-                Tag TEXT NOT NULL,
-                PRIMARY KEY (Tag)
-            )
-            """;
 
         command.ExecuteNonQuery();
     }

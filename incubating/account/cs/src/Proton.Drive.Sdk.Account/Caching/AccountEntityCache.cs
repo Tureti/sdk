@@ -7,7 +7,7 @@ namespace Proton.Drive.Sdk.Account.Caching;
 
 internal sealed class AccountEntityCache(ICacheRepository repository) : IAccountEntityCache
 {
-    private static readonly string[] CurrentUserAddressTags = ["user:current:address"];
+    private const string CurrentUserDefaultAddressIdCacheKey = "user:current:addresses:default:id";
 
     private readonly ICacheRepository _repository = repository;
 
@@ -25,22 +25,16 @@ internal sealed class AccountEntityCache(ICacheRepository repository) : IAccount
         return value is not null ? JsonSerializer.Deserialize(value, AccountEntitiesSerializerContext.Default.Address) : null;
     }
 
-    public async ValueTask SetCurrentUserAddressesAsync(IEnumerable<Address> addresses, CancellationToken cancellationToken)
+    public ValueTask SetCurrentUserDefaultAddressIdAsync(AddressId addressId, CancellationToken cancellationToken)
     {
-        await _repository.SetCompleteCollection(
-            addresses,
-            address => GetAddressCacheKey(address.Id),
-            CurrentUserAddressTags,
-            AccountEntitiesSerializerContext.Default.Address,
-            cancellationToken).ConfigureAwait(false);
+        return _repository.SetAsync(CurrentUserDefaultAddressIdCacheKey, addressId.ToString(), cancellationToken);
     }
 
-    public async ValueTask<IReadOnlyList<Address>?> TryGetCurrentUserAddressesAsync(CancellationToken cancellationToken)
+    public async ValueTask<AddressId?> TryGetCurrentUserDefaultAddressIdAsync(CancellationToken cancellationToken)
     {
-        return await _repository.TryGetCompleteCollection(
-            CurrentUserAddressTags,
-            AccountEntitiesSerializerContext.Default.Address,
-            cancellationToken).ConfigureAwait(false);
+        var value = await _repository.TryGetAsync(CurrentUserDefaultAddressIdCacheKey, cancellationToken).ConfigureAwait(false);
+
+        return value is not null ? (AddressId)value : null;
     }
 
     private static string GetAddressCacheKey(AddressId addressId)
