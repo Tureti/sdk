@@ -5,6 +5,9 @@
   },
   "contexts": {
     "Error": {
+      "A message is required when reporting copyright infringement or stolen data": [
+        "Pri nahlásení porušenia autorských práv alebo odcudzenia údajov je potrebné zanechať správu"
+      ],
       "Bookmark password is not available": [
         "Heslo záložky nie je dostupné"
       ],
@@ -166,6 +169,9 @@
       ],
       "Node is not accessible": [
         "Uzol nie je dostupný"
+      ],
+      "Node is not accessible via a share": [
+        "K uzlu nie je možné získať prístup prostredníctvom zdieľaného priečinka"
       ],
       "Node is not shared": [
         "Uzol nie je zdieľaný"
