@@ -37,6 +37,26 @@ android {
             consumerProguardFiles("proguard-rules.pro")
         }
     }
+    buildFeatures {
+        buildConfig = true
+    }
+    // Crypto backend variants. Both build the same SDK sources; they differ only in
+    // which crypto native library ships and how it is loaded.
+    flavorDimensions += "crypto"
+    productFlavors {
+        create("go") {
+            dimension = "crypto"
+            // android-golib ships the crypto native library as libgojni.so, so the
+            // SDK's "proton_crypto" lookup is redirected to it at runtime.
+            buildConfigField("String", "CRYPTO_LIBRARY_OVERRIDE", "\"gojni\"")
+        }
+        create("rust") {
+            dimension = "crypto"
+            // Rust crypto ships as libproton_crypto.so (copied into jniLibs below),
+            // matching the lookup name directly, so no runtime override is needed.
+            buildConfigField("String", "CRYPTO_LIBRARY_OVERRIDE", "\"\"")
+        }
+    }
     sourceSets {
         getByName("main") {
             jniLibs.srcDirs(layout.buildDirectory.dir("cs/jni"))
@@ -44,6 +64,10 @@ android {
             proto {
                 srcDir(layout.buildDirectory.dir("cs/proto"))
             }
+        }
+        // Only the rust variant ships the crypto library alongside the SDK.
+        getByName("rust") {
+            jniLibs.srcDirs(layout.buildDirectory.dir("cs/jni-rust"))
         }
     }
     packaging {
@@ -65,8 +89,9 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.core.user.domain)
     implementation(libs.core.network.data)
-    // used internally by csharp sdk, wanted as a transitive dependency
-    implementation(libs.crypto.android.golib)
+    // Ships libgojni.so (the Go crypto backend) used internally by the csharp sdk.
+    // Scoped to the go flavor only; the rust flavor ships libproton_crypto.so instead.
+    "goImplementation"(libs.crypto.android.golib)
     testImplementation(libs.bundles.test.jvm)
     androidTestImplementation(libs.coroutines.test)
     androidTestImplementation(libs.androidx.test.core.ktx)
@@ -148,6 +173,15 @@ tasks.register<Copy>("copySharedLibrary") {
     into(layout.buildDirectory.dir("cs/jni"))
 }
 
+// Rust variant only: ship the Rust crypto backend (libproton_crypto.so) alongside
+// the SDK. The go variant gets its crypto from the android-golib dependency instead.
+tasks.register<Copy>("copyRustCryptoLibrary") {
+    from(layout.projectDirectory.dir("../../../../client/cs/bin")) {
+        include("**/libproton_crypto.so")
+    }
+    into(layout.buildDirectory.dir("cs/jni-rust"))
+}
+
 tasks.named { name ->
     name.startsWith("configureNdkBuild")
 }.configureEach {
@@ -159,6 +193,12 @@ tasks.named { name ->
     name.matches("merge.*JniLibFolders".toRegex())
 }.configureEach {
     dependsOn("copySharedLibrary")
+}
+
+tasks.named { name ->
+    name.matches("mergeRust.*JniLibFolders".toRegex())
+}.configureEach {
+    dependsOn("copyRustCryptoLibrary")
 }
 
 tasks.register<Copy>("copyProto") {

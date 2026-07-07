@@ -84,6 +84,21 @@ subprojects {
         extensions.configure<MavenPublishBaseExtension> {
             val artifactId = name
 
+            // The :sdk library has go/rust crypto product flavors, so there is no single
+            // "release" variant to publish. Select one via -PcryptoVariant=go|rust
+            // (defaults to go). Both flavors publish under the same artifactId; the rust
+            // release is distinguished by the -rust VERSION suffix set in CI.
+            val cryptoVariant = providers.gradleProperty("cryptoVariant").getOrElse("go")
+            if (pluginManager.hasPlugin("com.android.library")) {
+                configure(
+                    com.vanniktech.maven.publish.AndroidSingleVariantLibrary(
+                        variant = "${cryptoVariant}Release",
+                        sourcesJar = true,
+                        publishJavadocJar = true,
+                    )
+                )
+            }
+
             if (!version.toString().endsWith("SNAPSHOT")) {
                 // Only sign non snapshot release
                 signAllPublications()

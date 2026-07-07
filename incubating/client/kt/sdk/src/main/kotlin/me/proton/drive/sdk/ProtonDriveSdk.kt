@@ -89,9 +89,13 @@ object ProtonDriveSdk {
         }
 
     private fun overrideName() {
+        // The go variant ships crypto as libgojni.so and redirects the "proton_crypto"
+        // lookup to it; the rust variant ships libproton_crypto.so and needs no override.
+        val overridingLibraryName = BuildConfig.CRYPTO_LIBRARY_OVERRIDE
+        if (overridingLibraryName.isEmpty()) return
         JniNativeLibrary.overrideName(
             libraryName = "proton_crypto".toByteArray(),
-            overridingLibraryName = "gojni".toByteArray()
+            overridingLibraryName = overridingLibraryName.toByteArray()
         )
     }
 }
