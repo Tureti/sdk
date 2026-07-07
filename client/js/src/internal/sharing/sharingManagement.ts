@@ -837,6 +837,11 @@ export class SharingManagement {
     async reportAbuse(settings: ReportDirectShareAbuseSettings): Promise<void> {
         validateReportShareAbuseSettings(settings);
 
+        if (settings.invitationUid) {
+            await this.reportInvitationAbuse(settings, settings.invitationUid);
+            return;
+        }
+
         const { nodeId: linkId } = splitNodeUid(settings.nodeUid);
         const revisionId = settings.revisionUid ? splitNodeRevisionUid(settings.revisionUid).revisionId : undefined;
 
@@ -873,14 +878,24 @@ export class SharingManagement {
         });
     }
 
-    private async findShareRootNodeUid(nodeUid: string, visited: string[] = []): Promise<string> {
-        if (visited.includes(nodeUid)) {
-            return nodeUid;
-        }
-        const node = await this.nodesService.getNode(nodeUid);
-        if (node.shareId || !node.parentUid) {
-            return nodeUid;
-        }
-        return this.findShareRootNodeUid(node.parentUid, [...visited, nodeUid]);
+    private async reportInvitationAbuse(
+        settings: ReportDirectShareAbuseSettings,
+        invitationUid: string,
+    ): Promise<void> {
+        const { shareId } = splitInvitationUid(invitationUid);
+        const encryptedInvitation = await this.apiService.getInvitation(invitationUid);
+        const { passphrase: sharePassphrase } = await this.cryptoService.decryptInvitationKey(encryptedInvitation);
+        const memberSessionKey = await this.cryptoService.getMemberSessionKey(encryptedInvitation.base64KeyPacket);
+        const { nodeId: linkId } = splitNodeUid(encryptedInvitation.node.uid);
+        await this.apiService.reportAbuse({
+            sharePassphrase,
+            memberSessionKey,
+            shareId,
+            abuseCategory: settings.abuseCategory,
+            bonaFide: settings.bonaFide,
+            reporterMessage: settings.reporterMessage,
+            reporterEmail: settings.reporterEmail,
+            linkId,
+        });
     }
 }

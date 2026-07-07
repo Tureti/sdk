@@ -150,7 +150,11 @@ export type ReportPublicLinkShareAbuseSettings = {
 /**
  * Same as {@link ReportPublicLinkShareAbuseSettings} but with `nodeUid` required,
  * for use with direct share clients where there is no implicit share context.
+ *
+ * `invitationUid` can optionally be provided when the node is being reported
+ * from a pending invitation (before the invitee has accepted it).
  */
 export type ReportDirectShareAbuseSettings = Omit<ReportPublicLinkShareAbuseSettings, 'nodeUid'> & {
     nodeUid: string;
+    invitationUid?: string;
 };

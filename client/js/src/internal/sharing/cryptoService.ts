@@ -142,13 +142,14 @@ export class SharingCryptoService {
         }
         const addressPublicKeys = await this.account.getPublicKeys(share.creatorEmail);
 
-        const { key, passphrase, passphraseSessionKey, verified, verificationErrors } = await this.driveCrypto.decryptKey(
-            share.encryptedCrypto.armoredKey,
-            share.encryptedCrypto.armoredPassphrase,
-            share.encryptedCrypto.armoredPassphraseSignature,
-            decryptionKeys,
-            addressPublicKeys,
-        );
+        const { key, passphrase, passphraseSessionKey, verified, verificationErrors } =
+            await this.driveCrypto.decryptKey(
+                share.encryptedCrypto.armoredKey,
+                share.encryptedCrypto.armoredPassphrase,
+                share.encryptedCrypto.armoredPassphraseSignature,
+                decryptionKeys,
+                addressPublicKeys,
+            );
 
         const author: Result<string, UnverifiedAuthorError> =
             verified === VERIFICATION_STATUS.SIGNED_AND_VALID
@@ -192,14 +193,7 @@ export class SharingCryptoService {
     async decryptInvitationWithNode(
         encryptedInvitation: EncryptedInvitationWithNode,
     ): Promise<ProtonInvitationWithNode> {
-        const inviteeAddress = await this.account.getOwnAddress(encryptedInvitation.inviteeEmail);
-        const inviteeKeys = inviteeAddress.keys.map((k) => k.key);
-
-        const shareKey = await this.driveCrypto.decryptUnsignedKey(
-            encryptedInvitation.share.armoredKey,
-            encryptedInvitation.share.armoredPassphrase,
-            inviteeKeys,
-        );
+        const { key: shareKey } = await this.decryptInvitationKey(encryptedInvitation);
 
         let nodeName: Result<string, Error>;
         try {
@@ -220,6 +214,24 @@ export class SharingCryptoService {
                 mediaType: encryptedInvitation.node.mediaType,
             },
         };
+    }
+
+    /**
+     * Decrypts the share key and passphrase from a pending invitation.
+     *
+     * Used for reporting abuse before the invitee has accepted the invitation,
+     * without exposing the passphrase through the invitation type.
+     */
+    async decryptInvitationKey(
+        encryptedInvitation: EncryptedInvitationWithNode,
+    ): Promise<{ key: PrivateKey; passphrase: string }> {
+        const inviteeAddress = await this.account.getOwnAddress(encryptedInvitation.inviteeEmail);
+        const inviteeKeys = inviteeAddress.keys.map((k) => k.key);
+        return this.driveCrypto.decryptUnsignedKey(
+            encryptedInvitation.share.armoredKey,
+            encryptedInvitation.share.armoredPassphrase,
+            inviteeKeys,
+        );
     }
 
     /**

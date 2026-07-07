@@ -1163,18 +1163,21 @@ export class ProtonDriveClient {
     }
 
     /**
-     * Report a directly shared node for abuse.
+     * Report a directly shared node or pending invitation for abuse.
      *
      * This reports a node (or a specific sub-node and revision) that the
      * authenticated user has access to via a direct share invitation or
-     * membership. The `bonaFide` flag must be explicitly set to `true`
-     * as a legal acknowledgment per DSA requirements.
+     * membership, or a pending invitation before it has been accepted.
+     * The `bonaFide` flag must be explicitly set to `true` as a legal
+     * acknowledgment per DSA requirements.
      *
-     * @param settings - Report details. `nodeUid` is required and must be a
-     *   node the caller has access to via a direct share.
+     * @param settings - Report details. `nodeUid` must always be provided; `invitationUid`
+     * is additionally required to report a pending invitation before it has been accepted.
      */
     async reportAbuse(settings: ReportDirectShareAbuseSettings): Promise<void> {
-        this.logger.info(`Reporting abuse for node ${settings.nodeUid}`);
+        this.logger.info(
+            `Reporting abuse for ${settings.invitationUid ? `invitation ${settings.invitationUid}` : `node ${settings.nodeUid}`}`,
+        );
         await this.sharing.management.reportAbuse(settings);
     }
 }

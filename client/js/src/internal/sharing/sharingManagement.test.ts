@@ -67,6 +67,13 @@ describe('SharingManagement', () => {
             }),
             updatePublicLink: jest.fn(),
             changeShareProperties: jest.fn(),
+            getInvitation: jest.fn().mockResolvedValue({
+                uid: `${DEFAULT_SHARE_ID}~invitationId`,
+                inviteeEmail: 'invitee@example.com',
+                base64KeyPacket: 'invitationKeyPacket',
+                share: { armoredKey: 'armoredKey', armoredPassphrase: 'armoredPassphrase', creatorEmail: 'creator@example.com' },
+                node: { uid: 'volumeId~invitedNodeId', type: 'file' },
+            }),
         };
         // @ts-expect-error No need to implement all methods for mocking
         cache = {
@@ -96,6 +103,7 @@ describe('SharingManagement', () => {
                 crypto: 'publicLinkCrypto',
                 srp: 'publicLinkSrp',
             })),
+            decryptInvitationKey: jest.fn().mockResolvedValue({ passphrase: 'invitationSharePassphrase' }),
         };
         // @ts-expect-error No need to implement all methods for mocking
         accountService = {
@@ -1300,6 +1308,34 @@ describe('SharingManagement', () => {
             expect(apiService.reportAbuse).toHaveBeenCalledWith(
                 expect.objectContaining({ shareId: DEFAULT_SHARE_ID, linkId: 'childNodeId' }),
             );
+        });
+
+        it('should report abuse for a pending invitation', async () => {
+            const invitationUid = `${DEFAULT_SHARE_ID}~invitationId`;
+
+            await sharingManagement.reportAbuse({ nodeUid, invitationUid, abuseCategory: AbuseCategory.Spam, bonaFide: true });
+
+            expect(apiService.getInvitation).toHaveBeenCalledWith(invitationUid);
+            expect(cryptoService.decryptInvitationKey).toHaveBeenCalled();
+            expect(cryptoService.getMemberSessionKey).toHaveBeenCalledWith('invitationKeyPacket');
+            expect(apiService.reportAbuse).toHaveBeenCalledWith({
+                sharePassphrase: 'invitationSharePassphrase',
+                memberSessionKey: 'base64MemberSessionKey',
+                shareId: DEFAULT_SHARE_ID,
+                abuseCategory: AbuseCategory.Spam,
+                bonaFide: true,
+                reporterMessage: undefined,
+                reporterEmail: undefined,
+                linkId: 'invitedNodeId',
+            });
+        });
+
+        it('should throw when required message is missing for an invitation', async () => {
+            const invitationUid = `${DEFAULT_SHARE_ID}~invitationId`;
+            await expect(
+                sharingManagement.reportAbuse({ nodeUid, invitationUid, abuseCategory: AbuseCategory.Copyright, bonaFide: true }),
+            ).rejects.toThrow(ValidationError);
+            expect(apiService.reportAbuse).not.toHaveBeenCalled();
         });
     });
 });

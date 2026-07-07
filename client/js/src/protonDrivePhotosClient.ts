@@ -832,12 +832,12 @@ export class ProtonDrivePhotosClient {
     }
 
     /**
-     * Report a directly shared node for abuse.
+     * Report a directly shared node or pending invitation for abuse.
      *
      * See `ProtonDriveClient.reportAbuse` for full documentation.
      */
     async reportAbuse(settings: ReportDirectShareAbuseSettings): Promise<void> {
-        this.logger.info(`Reporting abuse for node ${settings.nodeUid}`);
+        this.logger.info(`Reporting abuse for ${settings.invitationUid ? `invitation ${settings.invitationUid}` : `node ${settings.nodeUid}`}`);
         await this.sharing.management.reportAbuse(settings);
     }
 }

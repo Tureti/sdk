@@ -375,7 +375,7 @@ export class DriveCrypto {
         armoredKey: string,
         armoredPassphrase: string,
         decryptionKeys: PrivateKey | PrivateKey[],
-    ): Promise<PrivateKey> {
+    ): Promise<{ key: PrivateKey; passphrase: string }> {
         const { data: decryptedPassphrase } = await this.openPGPCrypto.decryptArmoredAndVerify(
             armoredPassphrase,
             decryptionKeys,
@@ -386,7 +386,7 @@ export class DriveCrypto {
 
         const key = await this.openPGPCrypto.decryptKey(armoredKey, passphrase);
 
-        return key;
+        return { key, passphrase };
     }
 
     /**

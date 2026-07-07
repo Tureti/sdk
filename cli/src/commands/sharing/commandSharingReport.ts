@@ -37,12 +37,18 @@ export class CommandSharingReport implements Command {
             default: '',
             help: 'UID of a specific revision to report. Defaults to the active revision.',
         },
+        invitation: {
+            type: 'string',
+            short: 'i',
+            default: '',
+            help: 'UID of the pending invitation to report. Use when reporting before accepting the invitation.',
+        },
     };
 
     async action({
         paths,
         args: [pathString],
-        options: { category, message, email, 'bona-fide': bonaFide, revision, json },
+        options: { category, message, email, 'bona-fide': bonaFide, revision, invitation, json },
     }: ActionArgs) {
         if (!Object.values(AbuseCategory).includes(category)) {
             throw new ValidationError(
@@ -65,6 +71,7 @@ export class CommandSharingReport implements Command {
             reporterMessage: message || undefined,
             reporterEmail: email || undefined,
             revisionUid: revision || undefined,
+            invitationUid: invitation || undefined,
         });
 
         if (!json) {
