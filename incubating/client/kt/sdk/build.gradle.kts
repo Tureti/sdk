@@ -89,9 +89,7 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.core.user.domain)
     implementation(libs.core.network.data)
-    // Ships libgojni.so (the Go crypto backend) used internally by the csharp sdk.
-    // Scoped to the go flavor only; the rust flavor ships libproton_crypto.so instead.
-    "goImplementation"(libs.crypto.android.golib)
+    implementation(libs.crypto.android.golib)
     testImplementation(libs.bundles.test.jvm)
     androidTestImplementation(libs.coroutines.test)
     androidTestImplementation(libs.androidx.test.core.ktx)
