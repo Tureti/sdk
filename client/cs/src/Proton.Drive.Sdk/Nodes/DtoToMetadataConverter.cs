@@ -227,7 +227,7 @@ internal static class DtoToMetadataConverter
         {
             Uid = new RevisionUid(uid, activeRevisionDto.Id),
             CreationTime = activeRevisionDto.CreationTime,
-            SizeOnCloudStorage = activeRevisionDto.StorageQuotaConsumption,
+            StorageSize = activeRevisionDto.StorageQuotaConsumption,
             ClaimedSize = extendedAttributes?.Common?.Size,
             ClaimedModificationTime = modificationTimeResult?.GetValueOrDefault(),
             ClaimedDigests =
@@ -237,7 +237,7 @@ internal static class DtoToMetadataConverter
                     Sha1Verified = fileDto.ActiveRevision.ChecksumVerified ?? false,
                 },
             Thumbnails = thumbnails.AsReadOnly(),
-            AdditionalClaimedMetadata = additionalMetadata,
+            ClaimedAdditionalMetadata = additionalMetadata,
             ContentAuthor = contentAuthor,
         };
 
@@ -254,7 +254,7 @@ internal static class DtoToMetadataConverter
                 TrashTime = linkDto.TrashTime,
                 MediaType = fileDto.MediaType,
                 ActiveRevision = activeRevision,
-                TotalSizeOnCloudStorage = fileDto.TotalSizeOnStorage,
+                TotalStorageSize = fileDto.TotalSizeOnStorage,
                 CaptureTime = linkDetailsDto.Photo.CaptureTime,
                 AlbumUids = linkDetailsDto.Photo.AlbumInclusions.Select(a => new NodeUid(uid.VolumeId, a.Id)).ToList(),
                 OwnedBy = ownedBy,
@@ -271,7 +271,7 @@ internal static class DtoToMetadataConverter
                 TrashTime = linkDto.TrashTime,
                 MediaType = fileDto.MediaType,
                 ActiveRevision = activeRevision,
-                TotalSizeOnCloudStorage = fileDto.TotalSizeOnStorage,
+                TotalStorageSize = fileDto.TotalSizeOnStorage,
                 OwnedBy = ownedBy,
                 Errors = [],
             };
@@ -359,12 +359,12 @@ internal static class DtoToMetadataConverter
         {
             Uid = new RevisionUid(uid, activeRevisionDto.Id),
             CreationTime = activeRevisionDto.CreationTime,
-            SizeOnCloudStorage = activeRevisionDto.StorageQuotaConsumption,
+            StorageSize = activeRevisionDto.StorageQuotaConsumption,
             ClaimedSize = extendedAttributes?.Common?.Size,
             ClaimedModificationTime = modificationTimeResult?.GetValueOrDefault(),
             ClaimedDigests = new FileContentDigests { Sha1 = extendedAttributes?.Common?.Digests?.Sha1 },
             Thumbnails = thumbnails.AsReadOnly(),
-            AdditionalClaimedMetadata = additionalMetadata,
+            ClaimedAdditionalMetadata = additionalMetadata,
             ContentAuthor = contentAuthor,
         };
 
@@ -381,7 +381,7 @@ internal static class DtoToMetadataConverter
                 KeyAuthor = nodeAuthor,
                 MediaType = fileDto.MediaType,
                 ActiveRevision = partialRevision,
-                TotalSizeOnCloudStorage = fileDto.TotalSizeOnStorage,
+                TotalStorageSize = fileDto.TotalSizeOnStorage,
                 Errors = nodeErrors,
                 CaptureTime = linkDetailsDto.Photo.CaptureTime,
                 AlbumUids = linkDetailsDto.Photo.AlbumInclusions.Select(a => new NodeUid(uid.VolumeId, a.Id)).ToList(),
@@ -398,7 +398,7 @@ internal static class DtoToMetadataConverter
                 KeyAuthor = nodeAuthor,
                 MediaType = fileDto.MediaType,
                 ActiveRevision = partialRevision,
-                TotalSizeOnCloudStorage = fileDto.TotalSizeOnStorage,
+                TotalStorageSize = fileDto.TotalSizeOnStorage,
                 Errors = nodeErrors,
                 OwnedBy = ownedBy,
             };

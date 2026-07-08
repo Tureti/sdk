@@ -10,13 +10,13 @@ import proton.drive.sdk.contentAuthorOrNull
 fun ProtonDriveSdk.FileRevision.toEntity() = FileRevision(
     uid = RevisionUid(uid),
     creationTime = creationTime.toInstant(),
-    sizeOnCloudStorage = sizeOnCloudStorage,
+    storageSize = storageSize,
     claimedSize = if (hasClaimedSize()) claimedSize else null,
     claimedDigests = claimedDigestsOrNull?.toEntity(),
     claimedModificationTime = claimedModificationTimeOrNull?.toInstant(),
     thumbnails = thumbnailsList.map { it.toEntity() },
-    additionalClaimedMetadata = if (additionalClaimedMetadataList.isNotEmpty()) {
-        additionalClaimedMetadataList.map { it.toEntity() }
+    claimedAdditionalMetadata = if (claimedAdditionalMetadataList.isNotEmpty()) {
+        claimedAdditionalMetadataList.map { it.toEntity() }
     } else null,
     contentAuthor = contentAuthorOrNull?.toEntity(),
 )

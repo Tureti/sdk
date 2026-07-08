@@ -255,7 +255,7 @@ public struct FileNode: Sendable {
     /// MIME type of the file
     public let mediaType: String
     /// Total size of all revisions, encrypted size on the server
-    public let totalSizeOnCloudStorage: Int64
+    public let totalStorageSize: Int64
     public let activeRevision: FileRevision
     public let errors: [ProtonDriveSDKDriveError]
 
@@ -268,7 +268,7 @@ public struct FileNode: Sendable {
                 keyAuthor: Author,
                 ownedBy: OwnedBy,
                 mediaType: String,
-                totalSizeOnCloudStorage: Int64,
+                totalStorageSize: Int64,
                 activeRevision: FileRevision,
                 errors: [ProtonDriveSDKDriveError]) {
         self.uid = uid
@@ -280,7 +280,7 @@ public struct FileNode: Sendable {
         self.keyAuthor = keyAuthor
         self.ownedBy = ownedBy
         self.mediaType = mediaType
-        self.totalSizeOnCloudStorage = totalSizeOnCloudStorage
+        self.totalStorageSize = totalStorageSize
         self.activeRevision = activeRevision
         self.errors = errors
     }
@@ -298,7 +298,7 @@ public struct FileNode: Sendable {
         self.keyAuthor = Author(result: sdkFileNode.keyAuthor)
         self.ownedBy = OwnedBy(result: sdkFileNode.ownedBy)
         self.mediaType = sdkFileNode.mediaType
-        self.totalSizeOnCloudStorage = sdkFileNode.totalSizeOnCloudStorage
+        self.totalStorageSize = sdkFileNode.totalStorageSize
         self.activeRevision = try FileRevision(sdkFileRevision: sdkFileNode.activeRevision)
         self.errors = sdkFileNode.errors.map { ProtonDriveSDKDriveError(error: $0) }
     }
@@ -347,7 +347,7 @@ public struct FileRevision: Sendable {
     /// When the revision was created on the server
     public let creationTime: Double
     /// Encrypted size
-    public let sizeOnCloudStorage: Int64
+    public let storageSize: Int64
     /// Raw size of the revision as stored in extended attributes
     public let claimedSize: Int64?
     /// Claimed file digests for integrity verification
@@ -355,26 +355,26 @@ public struct FileRevision: Sendable {
     /// Claimed modification time from the file system
     public let claimedModificationTime: Double?
     public let thumbnails: [ThumbnailHeader]
-    public let additionalClaimedMetadata: [AdditionalMetadata]?
+    public let claimedAdditionalMetadata: [AdditionalMetadata]?
     public let contentAuthor: Author?
 
     public init(uid: SDKRevisionUid,
                 creationTime: Double,
-                sizeOnCloudStorage: Int64,
+                storageSize: Int64,
                 claimedSize: Int64?,
                 claimedDigests: FileContentDigests,
                 claimedModificationTime: Double?,
                 thumbnails: [ThumbnailHeader],
-                additionalClaimedMetadata: [AdditionalMetadata]?,
+                claimedAdditionalMetadata: [AdditionalMetadata]?,
                 contentAuthor: Author?) {
         self.uid = uid
         self.creationTime = creationTime
-        self.sizeOnCloudStorage = sizeOnCloudStorage
+        self.storageSize = storageSize
         self.claimedSize = claimedSize
         self.claimedDigests = claimedDigests
         self.claimedModificationTime = claimedModificationTime
         self.thumbnails = thumbnails
-        self.additionalClaimedMetadata = additionalClaimedMetadata
+        self.claimedAdditionalMetadata = claimedAdditionalMetadata
         self.contentAuthor = contentAuthor
     }
 
@@ -385,14 +385,14 @@ public struct FileRevision: Sendable {
         }
         self.uid = id
         self.creationTime = sdkFileRevision.creationTime.timeIntervalSince1970
-        self.sizeOnCloudStorage = sdkFileRevision.sizeOnCloudStorage
+        self.storageSize = sdkFileRevision.storageSize
         self.claimedSize = sdkFileRevision.hasClaimedSize ? sdkFileRevision.claimedSize : nil
         self.claimedDigests = FileContentDigests(result: sdkFileRevision.claimedDigests)
         self.claimedModificationTime = sdkFileRevision.hasClaimedModificationTime
         ? sdkFileRevision.claimedModificationTime.timeIntervalSince1970
         : nil
         self.thumbnails = sdkFileRevision.thumbnails.map { ThumbnailHeader(result: $0) }
-        self.additionalClaimedMetadata = sdkFileRevision.additionalClaimedMetadata.map { AdditionalMetadata(result: $0) }
+        self.claimedAdditionalMetadata = sdkFileRevision.claimedAdditionalMetadata.map { AdditionalMetadata(result: $0) }
         self.contentAuthor = sdkFileRevision.hasContentAuthor ? Author(result: sdkFileRevision.contentAuthor) : nil
     }
 }

@@ -6,5 +6,5 @@ public record FileNode : Node
 
     public required Revision ActiveRevision { get; init; }
 
-    public required long TotalSizeOnCloudStorage { get; init; }
+    public required long TotalStorageSize { get; init; }
 }

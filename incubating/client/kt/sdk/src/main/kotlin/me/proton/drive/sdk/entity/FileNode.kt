@@ -14,6 +14,6 @@ data class FileNode(
     override val keyAuthor: Result<Author>,
     override val ownedBy: OwnedBy,
     val activeRevision: FileRevision,
-    val totalSizeOnCloudStorage: Long,
+    val totalStorageSize: Long,
     override val errors: List<DriveError>,
 ) : Node

@@ -271,12 +271,12 @@ enum ThumbnailType {
 message FileRevision {
     string uid = 1;
     google.protobuf.Timestamp creation_time = 2;
-    int64 size_on_cloud_storage = 3;
+    int64 storage_size = 3;
     int64 claimed_size = 4; // optional
     FileContentDigests claimed_digests = 5;
     google.protobuf.Timestamp claimed_modification_time = 6; // optional
     repeated ThumbnailHeader thumbnails = 7;
-    repeated AdditionalMetadataProperty additional_claimed_metadata = 8; // optional
+    repeated AdditionalMetadataProperty claimed_additional_metadata = 8; // optional
     AuthorResult content_author = 9; // optional
 }
 
@@ -291,7 +291,7 @@ message FileNode {
     AuthorResult name_author = 8;
     AuthorResult key_author = 9;
     FileRevision active_revision = 10;
-    int64 total_size_on_cloud_storage = 11;
+    int64 total_storage_size = 11;
     OwnedBy owned_by = 12;
     repeated DriveError errors = 13;
 }

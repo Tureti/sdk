@@ -18,7 +18,7 @@ fun ProtonDriveSdk.FileNode.toEntity() = FileNode(
     nameAuthor = nameAuthor.toEntity(),
     keyAuthor = keyAuthor.toEntity(),
     activeRevision = activeRevision.toEntity(),
-    totalSizeOnCloudStorage = totalSizeOnCloudStorage,
+    totalStorageSize = totalStorageSize,
     ownedBy = ownedBy.toEntity(),
     errors = errorsList.map { it.toEntity() },
 )

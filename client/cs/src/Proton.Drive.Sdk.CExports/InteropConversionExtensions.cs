@@ -62,7 +62,7 @@ internal static class InteropConversionExtensions
                 TrashTime = fileNode.TrashTime?.ToUniversalTime().ToTimestamp(),
                 NameAuthor = fileNode.NameAuthor.ToInterop(),
                 KeyAuthor = fileNode.KeyAuthor.ToInterop(),
-                TotalSizeOnCloudStorage = fileNode.TotalSizeOnCloudStorage,
+                TotalStorageSize = fileNode.TotalStorageSize,
                 OwnedBy = fileNode.OwnedBy.ToInterop(),
             };
 
@@ -157,7 +157,7 @@ internal static class InteropConversionExtensions
             {
                 Uid = revision.Uid.ToString(),
                 CreationTime = revision.CreationTime.ToUniversalTime().ToTimestamp(),
-                SizeOnCloudStorage = revision.SizeOnCloudStorage,
+                StorageSize = revision.StorageSize,
                 ClaimedSize = revision.ClaimedSize ?? 0,
                 ClaimedModificationTime = revision.ClaimedModificationTime?.ToUniversalTime().ToTimestamp(),
             };
@@ -182,10 +182,10 @@ internal static class InteropConversionExtensions
                     Type = (ThumbnailType)(int)t.Type,
                 }));
 
-            if (revision.AdditionalClaimedMetadata is not null)
+            if (revision.ClaimedAdditionalMetadata is not null)
             {
-                protoRevision.AdditionalClaimedMetadata.AddRange(
-                    revision.AdditionalClaimedMetadata.Select(m => new AdditionalMetadataProperty
+                protoRevision.ClaimedAdditionalMetadata.AddRange(
+                    revision.ClaimedAdditionalMetadata.Select(m => new AdditionalMetadataProperty
                     {
                         Name = m.Name,
                         Utf8JsonValue = ByteString.CopyFromUtf8(m.Value.ToString()),

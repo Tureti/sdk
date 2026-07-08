@@ -5,11 +5,11 @@ import java.time.Instant
 data class FileRevision(
     val uid: RevisionUid,
     val creationTime: Instant,
-    val sizeOnCloudStorage: Long,
+    val storageSize: Long,
     val claimedSize: Long?,
     val claimedDigests: FileContentDigests?,
     val claimedModificationTime: Instant?,
     val thumbnails: List<ThumbnailHeader>,
-    val additionalClaimedMetadata: List<AdditionalMetadataProperty>?,
+    val claimedAdditionalMetadata: List<AdditionalMetadataProperty>?,
     val contentAuthor: Result<Author>?,
 )
