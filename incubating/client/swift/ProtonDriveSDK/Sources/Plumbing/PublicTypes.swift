@@ -362,8 +362,26 @@ public struct ThumbnailHeader: Sendable {
     }
 }
 
+public enum RevisionState: Sendable {
+    case active
+    case superseded
+
+    init(result: Proton_Drive_Sdk_RevisionState) throws {
+        switch result {
+        case .active:
+            self = .active
+        case .superseded:
+            self = .superseded
+        default:
+            throw ProtonDriveSDKError(interopError: .wrongProto(message: "Invalid revision state: \(result)"))
+        }
+    }
+}
+
 public struct FileRevision: Sendable {
     public let uid: SDKRevisionUid
+    /// Current state of the revision
+    public let state: RevisionState
     /// When the revision was created on the server
     public let creationTime: Double
     /// Encrypted size
@@ -379,6 +397,7 @@ public struct FileRevision: Sendable {
     public let contentAuthor: Author?
 
     public init(uid: SDKRevisionUid,
+                state: RevisionState,
                 creationTime: Double,
                 storageSize: Int64,
                 claimedSize: Int64?,
@@ -388,6 +407,7 @@ public struct FileRevision: Sendable {
                 claimedAdditionalMetadata: [AdditionalMetadata]?,
                 contentAuthor: Author?) {
         self.uid = uid
+        self.state = state
         self.creationTime = creationTime
         self.storageSize = storageSize
         self.claimedSize = claimedSize
@@ -404,6 +424,7 @@ public struct FileRevision: Sendable {
             throw ProtonDriveSDKError(interopError: .incorrectIDFormat(id: sdkFileRevision.uid))
         }
         self.uid = id
+        self.state = try RevisionState(result: sdkFileRevision.state)
         self.creationTime = sdkFileRevision.creationTime.timeIntervalSince1970
         self.storageSize = sdkFileRevision.storageSize
         self.claimedSize = sdkFileRevision.hasClaimedSize ? sdkFileRevision.claimedSize : nil

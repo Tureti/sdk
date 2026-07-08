@@ -268,6 +268,12 @@ enum ThumbnailType {
     THUMBNAIL_TYPE_PREVIEW = 2;
 }
 
+enum RevisionState {
+    REVISION_STATE_UNSPECIFIED = 0; // Invalid value
+    REVISION_STATE_ACTIVE = 1;
+    REVISION_STATE_SUPERSEDED = 2;
+}
+
 message FileRevision {
     string uid = 1;
     google.protobuf.Timestamp creation_time = 2;
@@ -278,6 +284,7 @@ message FileRevision {
     repeated ThumbnailHeader thumbnails = 7;
     repeated AdditionalMetadataProperty claimed_additional_metadata = 8; // optional
     AuthorResult content_author = 9; // optional
+    RevisionState state = 10;
 }
 
 message FileNode {

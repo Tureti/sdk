@@ -226,6 +226,7 @@ internal static class DtoToMetadataConverter
         var activeRevision = new Revision
         {
             Uid = new RevisionUid(uid, activeRevisionDto.Id),
+            State = RevisionState.Active,
             CreationTime = activeRevisionDto.CreationTime,
             StorageSize = activeRevisionDto.StorageQuotaConsumption,
             ClaimedSize = extendedAttributes?.Common?.Size,
@@ -364,6 +365,7 @@ internal static class DtoToMetadataConverter
         var partialRevision = new Revision
         {
             Uid = new RevisionUid(uid, activeRevisionDto.Id),
+            State = RevisionState.Active,
             CreationTime = activeRevisionDto.CreationTime,
             StorageSize = activeRevisionDto.StorageQuotaConsumption,
             ClaimedSize = extendedAttributes?.Common?.Size,

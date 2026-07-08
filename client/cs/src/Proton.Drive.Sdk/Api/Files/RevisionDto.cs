@@ -1,5 +1,4 @@
 using System.Text.Json.Serialization;
-using Proton.Drive.Sdk.Nodes;
 using Proton.Sdk.Cryptography;
 using Proton.Sdk.Serialization;
 
@@ -24,7 +23,7 @@ internal class RevisionDto
     [JsonPropertyName("SignatureEmail")]
     public string? SignatureEmailAddress { get; init; }
 
-    public required RevisionState State { get; init; }
+    public required ApiRevisionState State { get; init; }
 
     [JsonPropertyName("XAttr")]
     public PgpArmoredMessage? ExtendedAttributes { get; init; }

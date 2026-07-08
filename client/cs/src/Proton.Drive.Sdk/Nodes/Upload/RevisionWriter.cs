@@ -502,7 +502,7 @@ internal sealed partial class RevisionWriter
             false,
             cancellationToken).ConfigureAwait(false);
 
-        return revisionResponse.Revision.State is RevisionState.Active or RevisionState.Superseded;
+        return revisionResponse.Revision.State is ApiRevisionState.Active or ApiRevisionState.Obsolete;
     }
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Sealing revision \"{RevisionUid}\"")]

@@ -160,6 +160,7 @@ internal static class InteropConversionExtensions
             var protoRevision = new FileRevision
             {
                 Uid = revision.Uid.ToString(),
+                State = (RevisionState)(int)revision.State,
                 CreationTime = revision.CreationTime.ToUniversalTime().ToTimestamp(),
                 StorageSize = revision.StorageSize,
                 ClaimedSize = revision.ClaimedSize ?? 0,

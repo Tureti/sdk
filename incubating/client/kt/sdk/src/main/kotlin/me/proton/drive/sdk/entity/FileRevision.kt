@@ -4,6 +4,7 @@ import java.time.Instant
 
 data class FileRevision(
     val uid: RevisionUid,
+    val state: RevisionState,
     val creationTime: Instant,
     val storageSize: Long,
     val claimedSize: Long?,
