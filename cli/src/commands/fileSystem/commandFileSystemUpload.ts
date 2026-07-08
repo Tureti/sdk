@@ -1,4 +1,5 @@
 import {
+    Logger,
     NodeEntity,
     NodeWithSameNameExistsValidationError,
     type ProtonDriveClient,
@@ -10,6 +11,7 @@ import { type ActionArgs, type Command, Options, PathType } from '../../cli';
 import type { CliMetrics } from '../../telemetry';
 import { getSha1 } from './digest';
 import { generateThumbnails } from './generateThumbnails';
+import { getLocalFileMediaType } from './mediaType';
 import { ConflictChoice, ConflictTargetKind, TransferConflictResolver } from './transferConflictResolver';
 import { createTransferProgress, TransferProgressInterface } from './transferProgress';
 import { type QueueItemDirectory, type QueueItemFile, UploadQueue } from './transferQueue';
@@ -18,6 +20,7 @@ import { TransferSummary } from './transferSummary';
 const SUPPORTED_REMOTE_PATH_TYPES = [PathType.MyFiles, PathType.Devices, PathType.SharedWithMe];
 
 type UploadContext = {
+    logger: Logger;
     sdk: ProtonDriveClient;
     json: boolean;
     skipThumbnails: boolean;
@@ -119,6 +122,7 @@ export class CommandFileSystemUpload implements Command {
         });
 
         const ctx: UploadContext = {
+            logger,
             sdk,
             json,
             skipThumbnails,
@@ -188,7 +192,7 @@ export class CommandFileSystemUpload implements Command {
         const expectedSha1 = await getSha1(item.localPath);
         const file = Bun.file(item.localPath);
         const metadata = {
-            mediaType: file.type,
+            mediaType: getLocalFileMediaType(ctx.logger, item.localPath),
             expectedSize: file.size,
             expectedSha1,
             modificationTime: file.lastModified && file.lastModified !== 0 ? new Date(file.lastModified) : undefined,
