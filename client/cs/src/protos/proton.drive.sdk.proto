@@ -294,6 +294,8 @@ message FileNode {
     int64 total_storage_size = 11;
     OwnedBy owned_by = 12;
     repeated DriveError errors = 13;
+    bool is_shared = 14;
+    bool is_shared_publicly = 15;
 }
 
 message FolderNode {
@@ -307,6 +309,8 @@ message FolderNode {
     AuthorResult key_author = 8;
     OwnedBy owned_by = 9;
     repeated DriveError errors = 10;
+    bool is_shared = 11;
+    bool is_shared_publicly = 12;
 }
 
 message SignatureVerificationError {

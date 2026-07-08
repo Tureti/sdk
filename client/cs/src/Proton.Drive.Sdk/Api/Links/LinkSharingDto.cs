@@ -7,4 +7,7 @@ internal sealed class LinkSharingDto
 {
     [JsonPropertyName("ShareID")]
     public required ShareId ShareId { get; init; }
+
+    [JsonPropertyName("ShareURLID")]
+    public string? ShareUrlId { get; init; }
 }

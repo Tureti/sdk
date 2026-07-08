@@ -140,6 +140,8 @@ internal static class FolderOperations
             KeyAuthor = author,
             CreationTime = DateTime.UtcNow,
             OwnedBy = parentOwnedBy,
+            IsShared = false,
+            IsSharedPublicly = false,
             Errors = [],
         };
     }

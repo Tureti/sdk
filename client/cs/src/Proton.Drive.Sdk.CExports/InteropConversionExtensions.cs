@@ -38,6 +38,8 @@ internal static class InteropConversionExtensions
                 NameAuthor = folderNode.NameAuthor.ToInterop(),
                 KeyAuthor = folderNode.KeyAuthor.ToInterop(),
                 OwnedBy = folderNode.OwnedBy.ToInterop(),
+                IsShared = folderNode.IsShared,
+                IsSharedPublicly = folderNode.IsSharedPublicly,
             };
 
             if (folderNode.ParentUid != null)
@@ -64,6 +66,8 @@ internal static class InteropConversionExtensions
                 KeyAuthor = fileNode.KeyAuthor.ToInterop(),
                 TotalStorageSize = fileNode.TotalStorageSize,
                 OwnedBy = fileNode.OwnedBy.ToInterop(),
+                IsShared = fileNode.IsShared,
+                IsSharedPublicly = fileNode.IsSharedPublicly,
             };
 
             if (fileNode.ParentUid != null)

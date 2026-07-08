@@ -159,6 +159,10 @@ public struct FolderNode: Sendable {
     public let keyAuthor: Author
     /// Owner of the node, either email or organization
     public let ownedBy: OwnedBy
+    /// Whether the node is shared with at least one user or via public link
+    public let isShared: Bool
+    /// Whether the node is shared publicly
+    public let isSharedPublicly: Bool
     public let errors: [ProtonDriveSDKDriveError]
 
     public init(uid: SDKNodeUid,
@@ -169,6 +173,8 @@ public struct FolderNode: Sendable {
                 nameAuthor: Author,
                 keyAuthor: Author,
                 ownedBy: OwnedBy,
+                isShared: Bool,
+                isSharedPublicly: Bool,
                 errors: [ProtonDriveSDKDriveError])
     {
         self.uid = uid
@@ -179,6 +185,8 @@ public struct FolderNode: Sendable {
         self.nameAuthor = nameAuthor
         self.keyAuthor = keyAuthor
         self.ownedBy = ownedBy
+        self.isShared = isShared
+        self.isSharedPublicly = isSharedPublicly
         self.errors = errors
     }
 
@@ -194,6 +202,8 @@ public struct FolderNode: Sendable {
         self.nameAuthor = Author(result: sdkFolderNode.nameAuthor)
         self.keyAuthor = Author(result: sdkFolderNode.keyAuthor)
         self.ownedBy = OwnedBy(result: sdkFolderNode.ownedBy)
+        self.isShared = sdkFolderNode.isShared
+        self.isSharedPublicly = sdkFolderNode.isSharedPublicly
         self.errors = sdkFolderNode.errors.map { ProtonDriveSDKDriveError(error: $0) }
     }
 }
@@ -257,6 +267,10 @@ public struct FileNode: Sendable {
     /// Total size of all revisions, encrypted size on the server
     public let totalStorageSize: Int64
     public let activeRevision: FileRevision
+    /// Whether the node is shared with at least one user or via public link
+    public let isShared: Bool
+    /// Whether the node is shared publicly
+    public let isSharedPublicly: Bool
     public let errors: [ProtonDriveSDKDriveError]
 
     public init(uid: SDKNodeUid,
@@ -270,6 +284,8 @@ public struct FileNode: Sendable {
                 mediaType: String,
                 totalStorageSize: Int64,
                 activeRevision: FileRevision,
+                isShared: Bool,
+                isSharedPublicly: Bool,
                 errors: [ProtonDriveSDKDriveError]) {
         self.uid = uid
         self.parentUid = parentUid
@@ -282,6 +298,8 @@ public struct FileNode: Sendable {
         self.mediaType = mediaType
         self.totalStorageSize = totalStorageSize
         self.activeRevision = activeRevision
+        self.isShared = isShared
+        self.isSharedPublicly = isSharedPublicly
         self.errors = errors
     }
 
@@ -300,6 +318,8 @@ public struct FileNode: Sendable {
         self.mediaType = sdkFileNode.mediaType
         self.totalStorageSize = sdkFileNode.totalStorageSize
         self.activeRevision = try FileRevision(sdkFileRevision: sdkFileNode.activeRevision)
+        self.isShared = sdkFileNode.isShared
+        self.isSharedPublicly = sdkFileNode.isSharedPublicly
         self.errors = sdkFileNode.errors.map { ProtonDriveSDKDriveError(error: $0) }
     }
 }

@@ -43,6 +43,8 @@ internal static class VolumeOperations
             KeyAuthor = new Author { EmailAddress = defaultAddress.EmailAddress },
             CreationTime = DateTime.UtcNow,
             OwnedBy = new OwnedBy(Email: defaultAddress.EmailAddress),
+            IsShared = false,
+            IsSharedPublicly = false,
             Errors = [],
         };
 
@@ -107,6 +109,8 @@ internal static class VolumeOperations
             KeyAuthor = new Author { EmailAddress = defaultAddress.EmailAddress },
             CreationTime = DateTime.UtcNow,
             OwnedBy = new OwnedBy(Email: defaultAddress.EmailAddress),
+            IsShared = false,
+            IsSharedPublicly = false,
             Errors = [],
         };
 

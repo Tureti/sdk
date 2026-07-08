@@ -25,5 +25,9 @@ public abstract record Node
 
     public required OwnedBy OwnedBy { get; init; }
 
+    public required bool IsShared { get; init; }
+
+    public required bool IsSharedPublicly { get; init; }
+
     public required IReadOnlyList<ProtonDriveError> Errors { get; init; }
 }

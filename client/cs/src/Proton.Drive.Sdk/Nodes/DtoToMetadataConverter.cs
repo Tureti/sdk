@@ -242,6 +242,8 @@ internal static class DtoToMetadataConverter
         };
 
         var ownedBy = MapOwnedBy(linkDto.OwnedBy);
+        var isShared = linkDetailsDto.Sharing is not null;
+        var isSharedPublicly = linkDetailsDto.Sharing?.ShareUrlId is not null;
         var node = linkDetailsDto.Photo is not null
             ? new PhotoNode
             {
@@ -258,6 +260,8 @@ internal static class DtoToMetadataConverter
                 CaptureTime = linkDetailsDto.Photo.CaptureTime,
                 AlbumUids = linkDetailsDto.Photo.AlbumInclusions.Select(a => new NodeUid(uid.VolumeId, a.Id)).ToList(),
                 OwnedBy = ownedBy,
+                IsShared = isShared,
+                IsSharedPublicly = isSharedPublicly,
                 Errors = [],
             }
             : new FileNode
@@ -273,6 +277,8 @@ internal static class DtoToMetadataConverter
                 ActiveRevision = activeRevision,
                 TotalStorageSize = fileDto.TotalSizeOnStorage,
                 OwnedBy = ownedBy,
+                IsShared = isShared,
+                IsSharedPublicly = isSharedPublicly,
                 Errors = [],
             };
 
@@ -369,6 +375,8 @@ internal static class DtoToMetadataConverter
         };
 
         var ownedBy = MapOwnedBy(linkDto.OwnedBy);
+        var isShared = linkDetailsDto.Sharing is not null;
+        var isSharedPublicly = linkDetailsDto.Sharing?.ShareUrlId is not null;
         var partialNode = linkDetailsDto.Photo is not null
             ? new PhotoNode
             {
@@ -386,6 +394,8 @@ internal static class DtoToMetadataConverter
                 CaptureTime = linkDetailsDto.Photo.CaptureTime,
                 AlbumUids = linkDetailsDto.Photo.AlbumInclusions.Select(a => new NodeUid(uid.VolumeId, a.Id)).ToList(),
                 OwnedBy = ownedBy,
+                IsShared = isShared,
+                IsSharedPublicly = isSharedPublicly,
             }
             : new FileNode
             {
@@ -401,6 +411,8 @@ internal static class DtoToMetadataConverter
                 TotalStorageSize = fileDto.TotalSizeOnStorage,
                 Errors = nodeErrors,
                 OwnedBy = ownedBy,
+                IsShared = isShared,
+                IsSharedPublicly = isSharedPublicly,
             };
 
         var partialSecrets = new FileOperationData
@@ -447,6 +459,7 @@ internal static class DtoToMetadataConverter
                 uid,
                 parentUid,
                 linkDto,
+                linkDetailsDto.Sharing,
                 nameSessionKey,
                 membershipDto);
 
@@ -488,6 +501,8 @@ internal static class DtoToMetadataConverter
             CreationTime = linkDto.CreationTime,
             TrashTime = linkDto.TrashTime,
             OwnedBy = MapOwnedBy(linkDto.OwnedBy),
+            IsShared = linkDetailsDto.Sharing is not null,
+            IsSharedPublicly = linkDetailsDto.Sharing?.ShareUrlId is not null,
             Errors = [],
         };
 
@@ -502,6 +517,7 @@ internal static class DtoToMetadataConverter
         NodeUid uid,
         NodeUid? parentUid,
         LinkDto linkDto,
+        LinkSharingDto? sharing,
         PgpSessionKey? nameSessionKey,
         ShareMembershipSummaryDto? membershipDto)
     {
@@ -563,6 +579,8 @@ internal static class DtoToMetadataConverter
             KeyAuthor = nodeAuthor,
             Errors = nodeKeyAndHashKeyErrors,
             OwnedBy = MapOwnedBy(linkDto.OwnedBy),
+            IsShared = sharing is not null,
+            IsSharedPublicly = sharing?.ShareUrlId is not null,
         };
 
         var partialSecrets = new FolderOperationData
