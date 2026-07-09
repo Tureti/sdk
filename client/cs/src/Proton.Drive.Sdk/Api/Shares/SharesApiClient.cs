@@ -1,5 +1,6 @@
 using Proton.Drive.Sdk.Serialization;
 using Proton.Drive.Sdk.Shares;
+using Proton.Sdk.Api;
 using Proton.Sdk.Api.Http;
 
 namespace Proton.Drive.Sdk.Api.Shares;
@@ -29,5 +30,12 @@ internal sealed class SharesApiClient(HttpClient httpClient) : ISharesApiClient
         return await _httpClient
             .Expecting(DriveApiSerializerContext.Default.ShareListResponse)
             .GetAsync($"shares{queryParameters}", cancellationToken).ConfigureAwait(false);
+    }
+
+    public async ValueTask RemoveMemberAsync(ShareId shareId, ShareMembershipId memberId, CancellationToken cancellationToken)
+    {
+        await _httpClient
+            .Expecting<ApiResponse>(DriveApiSerializerContext.Default.ApiResponse)
+            .DeleteAsync($"v2/shares/{shareId}/members/{memberId}", cancellationToken).ConfigureAwait(false);
     }
 }

@@ -127,6 +127,17 @@ internal static class InteropProtonPhotosClient
         return null;
     }
 
+    public static async ValueTask<IMessage?> HandleLeaveSharedNodeAsync(DrivePhotosClientLeaveSharedNodeRequest request)
+    {
+        var cancellationToken = Interop.GetCancellationToken(request.CancellationTokenSourceHandle);
+
+        var client = Interop.GetFromHandle<ProtonPhotosClient>(request.ClientHandle);
+
+        await client.LeaveSharedNodeAsync(NodeUid.Parse(request.NodeUid), cancellationToken).ConfigureAwait(false);
+
+        return null;
+    }
+
     public static IMessage? HandleFree(DrivePhotosClientFreeRequest request)
     {
         Interop.FreeHandle<ProtonPhotosClient>(request.ClientHandle);

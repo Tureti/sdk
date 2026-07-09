@@ -27,6 +27,7 @@ import proton.drive.sdk.drivePhotosClientEnumerateThumbnailsRequest
 import proton.drive.sdk.drivePhotosClientEnumerateTimelineRequest
 import proton.drive.sdk.drivePhotosClientEnumerateTrashRequest
 import proton.drive.sdk.drivePhotosClientGetNodeRequest
+import proton.drive.sdk.drivePhotosClientLeaveSharedNodeRequest
 import proton.drive.sdk.drivePhotosClientRestoreNodesRequest
 import proton.drive.sdk.drivePhotosClientTrashNodesRequest
 
@@ -147,6 +148,19 @@ internal class InteropProtonPhotosClient internal constructor(
         log(INFO, "emptyTrash")
         bridge.emptyTrash(
             drivePhotosClientEmptyTrashRequest {
+                clientHandle = handle
+                cancellationTokenSourceHandle = source.handle
+            }
+        )
+    }
+
+    override suspend fun leaveSharedNode(
+        nodeUid: NodeUid,
+    ): Unit = cancellationCoroutineScope { source ->
+        log(INFO, "leaveSharedNode")
+        bridge.leaveSharedNode(
+            drivePhotosClientLeaveSharedNodeRequest {
+                this.nodeUid = nodeUid.value
                 clientHandle = handle
                 cancellationTokenSourceHandle = source.handle
             }

@@ -38,6 +38,7 @@ import proton.drive.sdk.driveClientEnumerateTrashRequest
 import proton.drive.sdk.driveClientGetAvailableNameRequest
 import proton.drive.sdk.driveClientGetMyFilesFolderRequest
 import proton.drive.sdk.driveClientGetNodeRequest
+import proton.drive.sdk.driveClientLeaveSharedNodeRequest
 import proton.drive.sdk.driveClientRenameDeviceRequest
 import proton.drive.sdk.driveClientRenameRequest
 import proton.drive.sdk.driveClientRestoreNodesRequest
@@ -225,6 +226,19 @@ internal class InteropProtonDriveClient internal constructor(
         log(INFO, "emptyTrash")
         bridge.emptyTrash(
             driveClientEmptyTrashRequest {
+                clientHandle = handle
+                cancellationTokenSourceHandle = source.handle
+            }
+        )
+    }
+
+    override suspend fun leaveSharedNode(
+        nodeUid: NodeUid,
+    ): Unit = cancellationCoroutineScope { source ->
+        log(INFO, "leaveSharedNode")
+        bridge.leaveSharedNode(
+            driveClientLeaveSharedNodeRequest {
+                this.nodeUid = nodeUid.value
                 clientHandle = handle
                 cancellationTokenSourceHandle = source.handle
             }

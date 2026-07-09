@@ -147,6 +147,12 @@ class JniProtonPhotosClient internal constructor() : JniBaseProtonDriveSdk() {
         drivePhotosClientEmptyTrash = request
     }
 
+    suspend fun leaveSharedNode(
+        request: ProtonDriveSdk.DrivePhotosClientLeaveSharedNodeRequest,
+    ): Unit = executeOnce("leaveSharedNode", UnitResponseCallback) {
+        drivePhotosClientLeaveSharedNode = request
+    }
+
     fun free(handle: Long) {
         dispatch("free") {
             drivePhotosClientFree = drivePhotosClientFreeRequest {

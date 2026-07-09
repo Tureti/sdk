@@ -176,6 +176,12 @@ class JniProtonDriveClient internal constructor() : JniBaseProtonDriveSdk() {
         driveClientEmptyTrash = request
     }
 
+    suspend fun leaveSharedNode(
+        request: ProtonDriveSdk.DriveClientLeaveSharedNodeRequest,
+    ): Unit = executeOnce("leaveSharedNode", UnitResponseCallback) {
+        driveClientLeaveSharedNode = request
+    }
+
     suspend fun enumerateDevices(
         coroutineScope: CoroutineScope,
         request: ProtonDriveSdk.DriveClientEnumerateDevicesRequest,

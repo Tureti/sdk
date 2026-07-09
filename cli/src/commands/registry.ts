@@ -17,6 +17,7 @@ import { CommandInvitationAccept } from './sharing/commandInvitationAccept';
 import { CommandInvitationList } from './sharing/commandInvitationList';
 import { CommandInvitationReject } from './sharing/commandInvitationReject';
 import { CommandSharingInvite } from './sharing/commandSharingInvite';
+import { CommandSharingLeave } from './sharing/commandSharingLeave';
 import { CommandSharingRemove } from './sharing/commandSharingRemove';
 import { CommandSharingRemoveUrl } from './sharing/commandSharingRemoveUrl';
 import { CommandSharingSetUrl } from './sharing/commandSharingSetUrl';
@@ -39,6 +40,7 @@ export const COMMANDS = applyDefaultCliOptions([
     new CommandFileSystemEmptyTrash(),
     new CommandSharingStatus(),
     new CommandSharingInvite(),
+    new CommandSharingLeave(),
     new CommandSharingRemove(),
     new CommandSharingSetUrl(),
     new CommandSharingRemoveUrl(),

@@ -12,6 +12,7 @@ using Proton.Drive.Sdk.Nodes;
 using Proton.Drive.Sdk.Nodes.Download;
 using Proton.Drive.Sdk.Nodes.Upload;
 using Proton.Drive.Sdk.Nodes.Upload.Verification;
+using Proton.Drive.Sdk.Shares;
 using Proton.Drive.Sdk.Volumes;
 using Proton.Sdk;
 using Proton.Sdk.Api;
@@ -225,6 +226,11 @@ public sealed class ProtonDriveClient
     public ValueTask RenameNodeAsync(NodeUid uid, string newName, string? newMediaType, CancellationToken cancellationToken)
     {
         return NodeOperations.RenameAsync(this, uid, newName, newMediaType, cancellationToken);
+    }
+
+    public ValueTask LeaveSharedNodeAsync(NodeUid nodeUid, CancellationToken cancellationToken)
+    {
+        return SharingOperations.LeaveSharedNodeAsync(this, nodeUid, cancellationToken);
     }
 
     public ValueTask<IReadOnlyDictionary<NodeUid, Result<Exception>>> TrashNodesAsync(IEnumerable<NodeUid> uids, CancellationToken cancellationToken)

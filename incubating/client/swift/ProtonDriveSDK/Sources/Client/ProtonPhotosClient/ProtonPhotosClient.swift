@@ -292,3 +292,22 @@ extension ProtonPhotosClient {
         try await uploadManager.cancelUpload(with: token)
     }
 }
+
+// MARK: - Sharing
+extension ProtonPhotosClient {
+
+    public func leaveSharedNode(nodeUid: SDKNodeUid) async throws {
+        let cancellationTokenSource = try await CancellationTokenSource(logger: logger)
+        defer {
+            cancellationTokenSource.free()
+        }
+
+        let request = Proton_Drive_Sdk_DrivePhotosClientLeaveSharedNodeRequest.with {
+            $0.clientHandle = Int64(clientHandle)
+            $0.nodeUid = nodeUid.sdkCompatibleIdentifier
+            $0.cancellationTokenSourceHandle = Int64(cancellationTokenSource.handle)
+        }
+
+        let _: Void = try await SDKRequestHandler.send(request, logger: logger)
+    }
+}

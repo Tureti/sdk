@@ -7,4 +7,5 @@ internal interface ISharesApiClient
     ValueTask<ShareResponseV2> GetMyFilesShareAsync(CancellationToken cancellationToken);
     ValueTask<ShareResponse> GetShareAsync(ShareId id, CancellationToken cancellationToken);
     ValueTask<ShareListResponse> GetSharesAsync(ShareType? typeFilter, CancellationToken cancellationToken);
+    ValueTask RemoveMemberAsync(ShareId shareId, ShareMembershipId memberId, CancellationToken cancellationToken);
 }

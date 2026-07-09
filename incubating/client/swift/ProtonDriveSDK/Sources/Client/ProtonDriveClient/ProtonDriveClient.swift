@@ -37,6 +37,7 @@ public actor ProtonDriveClient: Sendable, ProtonSDKClient {
         case createDevice(UUID)
         case renameDevice(UUID)
         case deleteDevice(UUID)
+        case leaveSharedNode(UUID)
 
         var operationName: String {
             switch self {
@@ -55,6 +56,7 @@ public actor ProtonDriveClient: Sendable, ProtonSDKClient {
             case .createDevice: return "createDevice"
             case .renameDevice: return "renameDevice"
             case .deleteDevice: return "deleteDevice"
+            case .leaveSharedNode: return "leaveSharedNode"
             }
         }
     }
@@ -675,6 +677,29 @@ extension ProtonDriveClient {
 
     public func cancelEmptyTrash(cancellationToken: UUID) async throws {
         try await cancelOperation(identifier: .emptyTrash(cancellationToken))
+    }
+}
+
+// MARK: - Sharing
+extension ProtonDriveClient {
+
+    public func leaveSharedNode(nodeUid: SDKNodeUid, cancellationToken: UUID) async throws {
+        let cancellationTokenSource = try await createCancellationTokenSource(.leaveSharedNode(cancellationToken), logger)
+        defer {
+            freeCancellationTokenSourceIfNeeded(identifier: .leaveSharedNode(cancellationToken))
+        }
+
+        let leaveSharedNodeRequest = Proton_Drive_Sdk_DriveClientLeaveSharedNodeRequest.with {
+            $0.clientHandle = Int64(clientHandle)
+            $0.nodeUid = nodeUid.sdkCompatibleIdentifier
+            $0.cancellationTokenSourceHandle = Int64(cancellationTokenSource.handle)
+        }
+
+        let _: Void = try await SDKRequestHandler.send(leaveSharedNodeRequest, logger: logger)
+    }
+
+    public func cancelLeaveSharedNode(cancellationToken: UUID) async throws {
+        try await cancelOperation(identifier: .leaveSharedNode(cancellationToken))
     }
 }
 

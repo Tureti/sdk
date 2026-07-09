@@ -129,6 +129,11 @@ public sealed class ProtonPhotosClient
         return FileOperations.EnumerateThumbnailsAsync(DriveClient, photoUids, thumbnailType, cancellationToken);
     }
 
+    public ValueTask LeaveSharedNodeAsync(NodeUid nodeUid, CancellationToken cancellationToken)
+    {
+        return Shares.SharingOperations.LeaveSharedNodeAsync(DriveClient, nodeUid, cancellationToken);
+    }
+
     public ValueTask<IReadOnlyDictionary<NodeUid, Result<Exception>>> TrashNodesAsync(IEnumerable<NodeUid> uids, CancellationToken cancellationToken)
     {
         return NodeOperations.TrashAsync(DriveClient, uids, cancellationToken);

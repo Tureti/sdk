@@ -338,6 +338,17 @@ internal static class InteropProtonDriveClient
         return node?.ToInterop();
     }
 
+    public static async ValueTask<IMessage?> HandleLeaveSharedNodeAsync(DriveClientLeaveSharedNodeRequest request)
+    {
+        var cancellationToken = Interop.GetCancellationToken(request.CancellationTokenSourceHandle);
+
+        var client = Interop.GetFromHandle<ProtonDriveClient>(request.ClientHandle);
+
+        await client.LeaveSharedNodeAsync(NodeUid.Parse(request.NodeUid), cancellationToken).ConfigureAwait(false);
+
+        return null;
+    }
+
     public static async ValueTask<IMessage?> HandleEmptyTrashAsync(DriveClientEmptyTrashRequest request)
     {
         var cancellationToken = Interop.GetCancellationToken(request.CancellationTokenSourceHandle);
