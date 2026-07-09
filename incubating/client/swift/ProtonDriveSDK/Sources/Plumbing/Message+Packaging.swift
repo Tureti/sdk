@@ -126,6 +126,11 @@ extension Message {
                 $0.payload = .driveClientLeaveSharedNode(request)
             }
 
+        case let request as Proton_Drive_Sdk_DriveClientEnumerateSharedWithMeNodeUidsRequest:
+            Proton_Drive_Sdk_Request.with {
+                $0.payload = .driveClientEnumerateSharedWithMeNodeUids(request)
+            }
+
         case let request as Proton_Drive_Sdk_DriveClientEnumerateThumbnailsRequest:
             Proton_Drive_Sdk_Request.with {
                 $0.payload = .driveClientEnumerateThumbnails(request)

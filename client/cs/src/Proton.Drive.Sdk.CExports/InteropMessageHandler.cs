@@ -100,6 +100,11 @@ internal static class InteropMessageHandler
                 Request.PayloadOneofCase.DriveClientLeaveSharedNode
                     => await InteropProtonDriveClient.HandleLeaveSharedNodeAsync(request.DriveClientLeaveSharedNode).ConfigureAwait(false),
 
+                Request.PayloadOneofCase.DriveClientEnumerateSharedWithMeNodeUids
+                    => await InteropProtonDriveClient.HandleEnumerateSharedWithMeNodeUidsAsync(
+                        request.DriveClientEnumerateSharedWithMeNodeUids,
+                        bindingsHandle).ConfigureAwait(false),
+
                 Request.PayloadOneofCase.DriveClientEnumerateDevices
                     => await InteropProtonDriveClient.HandleEnumerateDevicesAsync(request.DriveClientEnumerateDevices, bindingsHandle).ConfigureAwait(false),
 

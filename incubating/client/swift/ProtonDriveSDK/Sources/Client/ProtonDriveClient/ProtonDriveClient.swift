@@ -38,6 +38,7 @@ public actor ProtonDriveClient: Sendable, ProtonSDKClient {
         case renameDevice(UUID)
         case deleteDevice(UUID)
         case leaveSharedNode(UUID)
+        case enumerateSharedWithMeNodeUids(UUID)
 
         var operationName: String {
             switch self {
@@ -57,6 +58,7 @@ public actor ProtonDriveClient: Sendable, ProtonSDKClient {
             case .renameDevice: return "renameDevice"
             case .deleteDevice: return "deleteDevice"
             case .leaveSharedNode: return "leaveSharedNode"
+            case .enumerateSharedWithMeNodeUids: return "enumerateSharedWithMeNodeUids"
             }
         }
     }
@@ -700,6 +702,38 @@ extension ProtonDriveClient {
 
     public func cancelLeaveSharedNode(cancellationToken: UUID) async throws {
         try await cancelOperation(identifier: .leaveSharedNode(cancellationToken))
+    }
+
+    /// Enumerates the UIDs of all nodes that have been shared with the current user.
+    ///
+    /// The results are not sorted and the order is not guaranteed.
+    public func enumerateSharedWithMeNodeUids(
+        cancellationToken: UUID,
+        onNodeUidEnumerated: @escaping NodeUidCallback
+    ) async throws {
+        let cancellationTokenSource = try await createCancellationTokenSource(.enumerateSharedWithMeNodeUids(cancellationToken), logger)
+        defer {
+            freeCancellationTokenSourceIfNeeded(identifier: .enumerateSharedWithMeNodeUids(cancellationToken))
+        }
+
+        let callbackState = NodeUidEnumerationCallbackWrapper(callback: onNodeUidEnumerated)
+        let request = Proton_Drive_Sdk_DriveClientEnumerateSharedWithMeNodeUidsRequest.with {
+            $0.clientHandle = Int64(clientHandle)
+            $0.yieldAction = Int64(ObjectHandle(callback: cNodeUidEnumerationCallback))
+            $0.cancellationTokenSourceHandle = Int64(cancellationTokenSource.handle)
+        }
+
+        let _: Void = try await SDKRequestHandler.send(
+            request,
+            state: WeakReference(value: callbackState),
+            scope: .ownerManaged,
+            owner: callbackState,
+            logger: logger
+        )
+    }
+
+    public func cancelEnumerateSharedWithMeNodeUids(cancellationToken: UUID) async throws {
+        try await cancelOperation(identifier: .enumerateSharedWithMeNodeUids(cancellationToken))
     }
 }
 

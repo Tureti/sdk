@@ -33,6 +33,7 @@ import proton.drive.sdk.driveClientDeleteNodesRequest
 import proton.drive.sdk.driveClientEmptyTrashRequest
 import proton.drive.sdk.driveClientEnumerateDevicesRequest
 import proton.drive.sdk.driveClientEnumerateFolderChildrenRequest
+import proton.drive.sdk.driveClientEnumerateSharedWithMeNodeUidsRequest
 import proton.drive.sdk.driveClientEnumerateThumbnailsRequest
 import proton.drive.sdk.driveClientEnumerateTrashRequest
 import proton.drive.sdk.driveClientGetAvailableNameRequest
@@ -230,6 +231,23 @@ internal class InteropProtonDriveClient internal constructor(
                 cancellationTokenSourceHandle = source.handle
             }
         )
+    }
+
+    override fun enumerateSharedWithMeNodeUids(): Flow<NodeUid> = channelFlow {
+        log(DEBUG, "enumerateSharedWithMeNodeUids")
+        cancellationCoroutineScope { source ->
+            bridge.enumerateSharedWithMeNodeUids(
+                coroutineScope = this@channelFlow,
+                request = driveClientEnumerateSharedWithMeNodeUidsRequest {
+                    clientHandle = handle
+                    cancellationTokenSourceHandle = source.handle
+                    yieldAction = ProtonDriveSdkNativeClient.getYieldPointer()
+                },
+                yield = { nodeUid ->
+                    send(NodeUid(nodeUid.value))
+                }
+            )
+        }
     }
 
     override suspend fun leaveSharedNode(

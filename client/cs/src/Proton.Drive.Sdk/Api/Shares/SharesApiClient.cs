@@ -32,6 +32,15 @@ internal sealed class SharesApiClient(HttpClient httpClient) : ISharesApiClient
             .GetAsync($"shares{queryParameters}", cancellationToken).ConfigureAwait(false);
     }
 
+    public async ValueTask<SharedWithMeResponse> GetSharedWithMeAsync(string? anchorId, CancellationToken cancellationToken)
+    {
+        var queryParameters = !string.IsNullOrEmpty(anchorId) ? $"?AnchorID={anchorId}" : string.Empty;
+
+        return await _httpClient
+            .Expecting(DriveApiSerializerContext.Default.SharedWithMeResponse)
+            .GetAsync($"v2/sharedwithme{queryParameters}", cancellationToken).ConfigureAwait(false);
+    }
+
     public async ValueTask RemoveMemberAsync(ShareId shareId, ShareMembershipId memberId, CancellationToken cancellationToken)
     {
         await _httpClient

@@ -20,6 +20,7 @@ interface ProtonDriveClient : ProtonSdkClient {
     suspend fun downloader(request: FileDownloaderRequest): Downloader
     suspend fun uploader(request: FileUploaderRequest): Uploader
     suspend fun uploader(request: FileRevisionUploaderRequest): Uploader
+    fun enumerateSharedWithMeNodeUids(): Flow<NodeUid>
     fun enumerateDevices(): Flow<Device>
     suspend fun createDevice(name: String, type: DeviceType): Device
     suspend fun renameDevice(deviceUid: DeviceUid, name: String): Device

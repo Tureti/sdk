@@ -338,6 +338,23 @@ internal static class InteropProtonDriveClient
         return node?.ToInterop();
     }
 
+    public static async ValueTask<IMessage?> HandleEnumerateSharedWithMeNodeUidsAsync(
+        DriveClientEnumerateSharedWithMeNodeUidsRequest request,
+        nint bindingsHandle)
+    {
+        var yieldFunction = new InteropAction<nint, InteropArray<byte>>(request.YieldAction);
+        var cancellationToken = Interop.GetCancellationToken(request.CancellationTokenSourceHandle);
+
+        var client = Interop.GetFromHandle<ProtonDriveClient>(request.ClientHandle);
+
+        await foreach (var nodeUid in client.EnumerateSharedWithMeNodeUidsAsync(cancellationToken).ConfigureAwait(false))
+        {
+            yieldFunction.InvokeWithMessage(bindingsHandle, new StringValue { Value = nodeUid.ToString() });
+        }
+
+        return null;
+    }
+
     public static async ValueTask<IMessage?> HandleLeaveSharedNodeAsync(DriveClientLeaveSharedNodeRequest request)
     {
         var cancellationToken = Interop.GetCancellationToken(request.CancellationTokenSourceHandle);
