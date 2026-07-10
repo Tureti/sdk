@@ -13,11 +13,44 @@ import { getSha1 } from './digest';
 import { generateThumbnails } from './generateThumbnails';
 import { getLocalFileMediaType } from './mediaType';
 import { ConflictChoice, ConflictTargetKind, TransferConflictResolver } from './transferConflictResolver';
-import { createTransferProgress, TransferProgressInterface } from './transferProgress';
+import { createTransferProgress, TransferProgressInterface, TransferProgressItem } from './transferProgress';
 import { type QueueItemDirectory, type QueueItemFile, UploadQueue } from './transferQueue';
 import { TransferSummary } from './transferSummary';
 
 const SUPPORTED_REMOTE_PATH_TYPES = [PathType.MyFiles, PathType.Devices, PathType.SharedWithMe];
+
+/**
+ * Creates an upload progress callback isolated from the caller's scope.
+ *
+ * When a closure is defined inside a function, the JS engine attaches it to
+ * the entire lexical environment of that function — all variables in scope,
+ * whether the closure uses them or not. This means an inline `onProgress`
+ * lambda defined inside `uploadBlockData` would keep `encryptedData` (the
+ * 4 MB buffer) alive for as long as the HTTP client holds the callback,
+ * even though the lambda never references `encryptedData`.
+ *
+ * By defining this factory at module level, the returned closures only see
+ * `fileSize` and `progressTracker`. The file size and progress tracker are
+ * invisible to them and can be garbage collected as soon as the upload
+ * completes.
+ */
+function createUploadProgressCallback(
+    fileSize: number,
+    progressTracker?: TransferProgressItem,
+): ((uploadedBytes: number) => void) | undefined {
+    if (!progressTracker) {
+        return;
+    }
+
+    return (uploadedBytes: number) => {
+        // file.size is raw size while uploadedBytes is encrypted size.
+        // Encrypted size will be a bit higher. It is enough to cap the
+        // progress to 100%.
+        if (uploadedBytes <= fileSize) {
+            progressTracker.onProgress(uploadedBytes);
+        }
+    };
+}
 
 type UploadContext = {
     logger: Logger;
@@ -224,14 +257,11 @@ export class CommandFileSystemUpload implements Command {
                     ? await ctx.sdk.getFileRevisionUploader(newRevisionForNodeUid, metadata)
                     : await ctx.sdk.getFileUploader(item.parentNode, name, metadata);
 
-                const controller = await uploader.uploadFromStream(file.stream(), thumbnails, (uploadedBytes) => {
-                    // file.size is raw size while uploadedBytes is encrypted
-                    // size. Encrypted size will be a bit higher. It is enough
-                    // to cap the progress to 100%.
-                    if (uploadedBytes <= file.size) {
-                        progressTracker?.onProgress?.(uploadedBytes);
-                    }
-                });
+                const controller = await uploader.uploadFromStream(
+                    file.stream(),
+                    thumbnails,
+                    createUploadProgressCallback(file.size, progressTracker),
+                );
 
                 await controller.completion();
                 ctx.metrics?.reportUploadVerifierAttempt();

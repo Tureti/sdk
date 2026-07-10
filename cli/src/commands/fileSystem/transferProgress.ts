@@ -12,7 +12,7 @@ export interface TransferProgressInterface {
     dispose(): void;
 }
 
-interface TransferProgressItem {
+export interface TransferProgressItem {
     onProgress: (uploadedBytes: number) => void;
     onFinished: () => void;
 }
