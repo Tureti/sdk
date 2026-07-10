@@ -21,7 +21,8 @@ export async function generateThumbnails(mediaType: string, localPath: string): 
         return [];
     }
 
-    const metadata = await imageFromPath(localPath).metadata();
+    const image = new Bun.Image(localPath, { autoOrient: true });
+    const metadata = await image.metadata();
     const width = metadata.width;
     const height = metadata.height;
 
@@ -29,7 +30,7 @@ export async function generateThumbnails(mediaType: string, localPath: string): 
         return [];
     }
 
-    const type1Buffer = await webpFitMaxBytes(localPath, MAX_THUMBNAIL_SIDE, MAX_THUMBNAIL_BYTES);
+    const type1Buffer = await webpFitMaxBytes(image, MAX_THUMBNAIL_SIDE, MAX_THUMBNAIL_BYTES);
     if (!type1Buffer) {
         return [];
     }
@@ -42,7 +43,7 @@ export async function generateThumbnails(mediaType: string, localPath: string): 
     ];
 
     if (shouldGenerateHdThumbnail(width, height, mediaType)) {
-        const type2Buffer = await webpFitMaxBytes(localPath, MAX_HD_THUMBNAIL_SIDE, MAX_HD_THUMBNAIL_BYTES);
+        const type2Buffer = await webpFitMaxBytes(image, MAX_HD_THUMBNAIL_SIDE, MAX_HD_THUMBNAIL_BYTES);
         if (type2Buffer) {
             thumbnails.push({
                 type: ThumbnailType.Type2,
@@ -52,10 +53,6 @@ export async function generateThumbnails(mediaType: string, localPath: string): 
     }
 
     return thumbnails;
-}
-
-function imageFromPath(localPath: string): Bun.Image {
-    return new Bun.Image(localPath, { autoOrient: true });
 }
 
 function shouldGenerateHdThumbnail(width: number, height: number, mediaType: string): boolean {
@@ -68,12 +65,12 @@ function shouldGenerateHdThumbnail(width: number, height: number, mediaType: str
     return !isJpeg && !isWebp;
 }
 
-async function webpFitMaxBytes(localPath: string, maxSide: number, maxBytes: number): Promise<Buffer | undefined> {
+async function webpFitMaxBytes(image: Bun.Image, maxSide: number, maxBytes: number): Promise<Buffer | undefined> {
     let quality = 90;
     let out: Buffer | undefined;
     while (quality > 0) {
         try {
-            out = await imageFromPath(localPath)
+            out = await image
                 .resize(maxSide, maxSide, { fit: 'inside', withoutEnlargement: true })
                 .webp({ quality })
                 .buffer();
