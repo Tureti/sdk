@@ -47,7 +47,7 @@ export function initTelemetry(config: Config) {
             metricsHandler?.init(apiClient, userPlan);
         },
         flush: async () => {
-            await Promise.all([flushSentry(), metricsHandler?.flush()]);
+            await Promise.all([fileHandler.flush(), flushSentry(), metricsHandler?.flush()]);
         },
     };
 }

@@ -84,7 +84,7 @@ export function getConfig(options: InitConfig): Config {
 
 /**
  * Derives the account URL from the API base URL by swapping the `drive-api` host label for `account`,
- * e.g. `drive-api.houssay.proton.black` -> `account.houssay.proton.black`.
+ * e.g. `drive-api.houssay.proton.black` into `account.houssay.proton.black`.
  * Falls back to `account.proton.black`/`account.proton.me` when the base URL doesn't follow that pattern.
  */
 function accountUrlFromBaseUrl(baseUrl: string): string {
