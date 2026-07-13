@@ -37,8 +37,8 @@ export interface MetricUploadEvent {
     volumeType: MetricVolumeType;
     uploadedSize: number;
     approximateUploadedSize: number;
-    expectedSize: number;
-    approximateExpectedSize: number;
+    expectedSize?: number;
+    approximateExpectedSize?: number;
     error?: MetricsUploadErrorType;
     originalError?: unknown;
 }

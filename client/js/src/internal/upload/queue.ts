@@ -20,6 +20,21 @@ const MAX_CONCURRENT_FILE_UPLOADS = 5;
 const MAX_CONCURRENT_UPLOAD_SIZE = 10 * FILE_CHUNK_SIZE;
 
 /**
+ * Assumed size-based weight for an upload whose size is not known upfront
+ * (`expectedSize: null`).
+ *
+ * It cannot be `0`: the real size might turn out to be large, and treating
+ * it as free would let up to `MAX_CONCURRENT_FILE_UPLOADS` such uploads run
+ * fully in parallel - if they are all large and the connection is poor,
+ * none of them may finish. It also should not be so large that only one can
+ * run at a time, which would be overly conservative for the common case of
+ * many small unknown-size uploads. Half of the size budget is a compromise: 
+ * at most two unknown-size uploads run concurrently, keeping some parallelism while
+ * still biasing toward finishing at least one before starting more.
+ */
+const UNKNOWN_SIZE_UPLOAD_WEIGHT = MAX_CONCURRENT_UPLOAD_SIZE / 2;
+
+/**
  * A queue that limits the number of concurrent uploads.
  *
  * This is used to limit the number of concurrent uploads to avoid
@@ -38,7 +53,7 @@ export class UploadQueue {
 
     private totalExpectedSize = 0;
 
-    async waitForCapacity(expectedSize: number, signal?: AbortSignal) {
+    async waitForCapacity(expectedSize: number | null, signal?: AbortSignal) {
         await waitForCondition(
             () =>
                 this.totalFileUploads < MAX_CONCURRENT_FILE_UPLOADS &&
@@ -46,11 +61,11 @@ export class UploadQueue {
             signal,
         );
         this.totalFileUploads++;
-        this.totalExpectedSize += expectedSize;
+        this.totalExpectedSize += expectedSize ?? UNKNOWN_SIZE_UPLOAD_WEIGHT;
     }
 
-    releaseCapacity(expectedSize: number) {
+    releaseCapacity(expectedSize: number | null) {
         this.totalFileUploads--;
-        this.totalExpectedSize -= expectedSize;
+        this.totalExpectedSize -= expectedSize ?? UNKNOWN_SIZE_UPLOAD_WEIGHT;
     }
 }

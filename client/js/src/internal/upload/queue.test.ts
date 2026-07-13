@@ -126,5 +126,37 @@ describe('UploadQueue', () => {
         const promise = queue.waitForCapacity(0, controller.signal);
         await expect(promise).rejects.toThrow(AbortError);
     });
+
+    it('should reserve half the size budget for a null (unknown) expected size, allowing two concurrently', async () => {
+        await queue.waitForCapacity(null);
+
+        // A second unknown-size upload should still be allowed immediately -
+        // together they exactly fill the size budget (2 * half = full).
+        const secondPromise = queue.waitForCapacity(null);
+        await secondPromise;
+
+        // A third should now have to wait.
+        let resolved = false;
+        const thirdPromise = queue.waitForCapacity(null).then(() => {
+            resolved = true;
+        });
+
+        await jest.advanceTimersByTimeAsync(100);
+        expect(resolved).toBe(false);
+
+        queue.releaseCapacity(null);
+        await jest.advanceTimersByTimeAsync(100);
+        await thirdPromise;
+        expect(resolved).toBe(true);
+    });
+
+    it('should not go negative on release when capacity was reserved with a null size', async () => {
+        await queue.waitForCapacity(null);
+        queue.releaseCapacity(null);
+
+        const largeSize = 10 * FILE_CHUNK_SIZE;
+        const promise = queue.waitForCapacity(largeSize);
+        await promise;
+    });
 });
 

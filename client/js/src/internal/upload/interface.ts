@@ -1,6 +1,18 @@
 import { PrivateKey, SessionKey } from '../../crypto';
-import { AnonymousUser, MetricVolumeType, Result, Revision, ThumbnailType } from '../../interface';
+import { AnonymousUser, MetricVolumeType, Result, Revision, ThumbnailType, UploadMetadata } from '../../interface';
 import { DecryptedNode } from '../nodes';
+
+/**
+ * `UploadMetadata` narrowed to a definitely-known `expectedSize`.
+ *
+ * Internal-only: the small-file (single-request) upload path requires the
+ * exact size upfront and is only ever reached from `Uploader.startUpload`
+ * after it has confirmed `metadata.expectedSize !== null`. Threading this
+ * type down to `SmallUploader` and its subclasses means that invariant is
+ * enforced once, at that call site, instead of being re-asserted (via casts)
+ * at every read of `expectedSize` inside the small-file uploader.
+ */
+export type UploadMetadataWithKnownSize = UploadMetadata & { expectedSize: number };
 
 export type NodeRevisionDraft = {
     nodeUid: string;

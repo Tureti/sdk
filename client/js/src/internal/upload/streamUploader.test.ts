@@ -153,7 +153,7 @@ describe('StreamUploader', () => {
                 nodeUid: 'testVol~testNode',
             });
 
-            const numberOfExpectedBlocks = Math.ceil(metadata.expectedSize / FILE_CHUNK_SIZE);
+            const numberOfExpectedBlocks = Math.ceil(metadata.expectedSize! / FILE_CHUNK_SIZE);
             expect(uploadManager.commitDraft).toHaveBeenCalledTimes(1);
             expect(uploadManager.commitDraft).toHaveBeenCalledWith(
                 revisionDraft,
@@ -177,7 +177,7 @@ describe('StreamUploader', () => {
                 },
             );
             expect(telemetry.uploadFinished).toHaveBeenCalledTimes(1);
-            expect(telemetry.uploadFinished).toHaveBeenCalledWith('testVol~testNode~testRev', metadata.expectedSize + thumbnailSize);
+            expect(telemetry.uploadFinished).toHaveBeenCalledWith('testVol~testNode~testRev', metadata.expectedSize! + thumbnailSize);
             expect(telemetry.uploadFailed).not.toHaveBeenCalled();
             expect(onFinish).toHaveBeenCalledTimes(1);
             expect(onFinish).toHaveBeenCalledWith(false);
@@ -224,7 +224,7 @@ describe('StreamUploader', () => {
             stream = new ReadableStream({
                 start(controller) {
                     const chunkSize = 1024;
-                    const chunkCount = metadata.expectedSize / chunkSize;
+                    const chunkCount = metadata.expectedSize! / chunkSize;
                     for (let i = 1; i <= chunkCount; i++) {
                         controller.enqueue(new Uint8Array(chunkSize));
                     }
@@ -640,6 +640,65 @@ describe('StreamUploader', () => {
                 );
 
                 await verifyFailure('File hash does not match expected hash', 10 * 1024 * 1024 + 1024);
+            });
+
+            it('should derive size and blockSizes from uploaded bytes when expectedSize is null (unknown)', async () => {
+                metadata = { expectedSize: null } as UploadMetadata;
+                uploader = new StreamUploader(
+                    telemetry,
+                    apiService,
+                    cryptoService,
+                    uploadManager,
+                    blockVerifier,
+                    revisionDraft,
+                    metadata,
+                    onFinish,
+                    controller,
+                    abortController,
+                );
+
+                const result = await uploader.start(stream, thumbnails, onProgress);
+
+                expect(result).toEqual({
+                    nodeRevisionUid: 'testVol~testNode~testRev',
+                    nodeUid: 'testVol~testNode',
+                });
+                expect(uploadManager.commitDraft).toHaveBeenCalledTimes(1);
+                expect(uploadManager.commitDraft).toHaveBeenCalledWith(
+                    revisionDraft,
+                    expect.anything(),
+                    expect.objectContaining({
+                        size: 10 * 1024 * 1024,
+                        blockSizes: [4 * 1024 * 1024, 4 * 1024 * 1024, 2 * 1024 * 1024],
+                    }),
+                    metadata.additionalMetadata,
+                    { checksumVerified: false },
+                );
+                expect(telemetry.uploadFailed).not.toHaveBeenCalled();
+            });
+
+            it('should throw an error if nothing was uploaded and expectedSize is null (unknown)', async () => {
+                uploader = new StreamUploader(
+                    telemetry,
+                    apiService,
+                    cryptoService,
+                    uploadManager,
+                    blockVerifier,
+                    revisionDraft,
+                    { expectedSize: null } as UploadMetadata,
+                    onFinish,
+                    controller,
+                    abortController,
+                );
+                const emptyStream = new ReadableStream({
+                    start(streamController) {
+                        streamController.close();
+                    },
+                });
+
+                await expect(uploader.start(emptyStream, [], onProgress)).rejects.toThrow(
+                    'No data to upload received',
+                );
             });
         });
     });

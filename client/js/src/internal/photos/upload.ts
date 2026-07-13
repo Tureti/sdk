@@ -132,7 +132,7 @@ export class PhotoStreamUploader extends StreamUploader {
 
         const extendedAttributes = {
             modificationTime: this.metadata.modificationTime,
-            size: this.metadata.expectedSize,
+            size: this.uploadedOriginalFileSize,
             blockSizes: this.uploadedBlockSizes,
             digests,
         };

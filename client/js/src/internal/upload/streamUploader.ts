@@ -259,7 +259,7 @@ export class StreamUploader {
 
         const extendedAttributes = {
             modificationTime: this.metadata.modificationTime,
-            size: this.metadata.expectedSize,
+            size: this.uploadedOriginalFileSize,
             blockSizes: this.uploadedBlockSizes,
             digests,
         };
@@ -638,18 +638,30 @@ export class StreamUploader {
     ): {
         checksumVerified: boolean;
     } {
-        const expectedBlockCount =
-            Math.ceil(this.metadata.expectedSize / FILE_CHUNK_SIZE) + (thumbnails ? thumbnails?.length : 0);
-        if (this.uploadedBlockCount !== expectedBlockCount) {
-            throw new IntegrityError(c('Error').t`Some file parts failed to upload`, {
+        const { expectedSize } = this.metadata;
+
+        // When the size isn't known upfront, we cannot assert an expected
+        // block count or byte total against anything - only that at least
+        // one block/thumbnail was uploaded and, when provided, that the
+        // content hash matches.
+        if (expectedSize !== null) {
+            const expectedBlockCount = Math.ceil(expectedSize / FILE_CHUNK_SIZE) + (thumbnails ? thumbnails?.length : 0);
+            if (this.uploadedBlockCount !== expectedBlockCount) {
+                throw new IntegrityError(c('Error').t`Some file parts failed to upload`, {
+                    uploadedBlockCount: this.uploadedBlockCount,
+                    expectedBlockCount,
+                });
+            }
+            if (this.uploadedOriginalFileSize !== expectedSize) {
+                throw new IntegrityError(c('Error').t`Some file bytes failed to upload`, {
+                    uploadedOriginalFileSize: this.uploadedOriginalFileSize,
+                    expectedFileSize: expectedSize,
+                });
+            }
+        } else if (this.uploadedBlockCount === 0) {
+            throw new IntegrityError(c('Error').t`No data to upload received`, {
                 uploadedBlockCount: this.uploadedBlockCount,
-                expectedBlockCount,
-            });
-        }
-        if (this.uploadedOriginalFileSize !== this.metadata.expectedSize) {
-            throw new IntegrityError(c('Error').t`Some file bytes failed to upload`, {
-                uploadedOriginalFileSize: this.uploadedOriginalFileSize,
-                expectedFileSize: this.metadata.expectedSize,
+                expectedBlockCount: undefined,
             });
         }
         if (this.metadata.expectedSha1 && digests.sha1 !== this.metadata.expectedSha1) {
@@ -677,7 +689,14 @@ export class StreamUploader {
         return this.uploadedBlocks.length + this.uploadedThumbnails.length;
     }
 
-    private get uploadedOriginalFileSize(): number {
+    /**
+     * Actual total of uploaded block bytes, and the file size to report to
+     * the server: `verifyIntegrity` (called earlier in `commitFile`) already
+     * guarantees this equals `metadata.expectedSize` whenever that was
+     * declared, so this value alone is correct whether the size was known
+     * upfront or not.
+     */
+    protected get uploadedOriginalFileSize(): number {
         return this.uploadedBlocks.reduce((sum, { originalSize }) => sum + originalSize, 0);
     }
 

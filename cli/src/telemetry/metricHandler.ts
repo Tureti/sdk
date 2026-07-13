@@ -140,10 +140,12 @@ class ConfiguredMetricHandler {
             Value: metric.uploadedSize,
             Labels: {},
         });
-        this.metrics.drive_sdk_upload_errors_file_size_histogram.observe({
-            Value: reduceSizePrecision(metric.expectedSize),
-            Labels: {},
-        });
+        if (metric.expectedSize !== undefined) {
+            this.metrics.drive_sdk_upload_errors_file_size_histogram.observe({
+                Value: reduceSizePrecision(metric.expectedSize),
+                Labels: {},
+            });
+        }
 
         if (
             metric.error !== 'network_error' &&

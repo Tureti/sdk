@@ -100,23 +100,32 @@ export abstract class Uploader {
         thumbnails: Thumbnail[],
         onProgress?: (uploadedBytes: number) => void,
     ): Promise<{ nodeRevisionUid: string; nodeUid: string }> {
-        const expectedEncryptedTotalSize = this.getExpectedEncryptedTotalSize(thumbnails);
-        if (await this.shouldUseSmallFileUpload(expectedEncryptedTotalSize)) {
-            return this.initSmallFileUploader(stream, thumbnails, onProgress);
+        const { expectedSize } = this.metadata;
+
+        // The small-file (single-request) path needs the exact size upfront
+        // to decide whether it applies and to buffer/verify the content. If
+        // the size is not known ahead of time (expectedSize is explicitly
+        // null), always stream.
+        if (expectedSize !== null) {
+            const expectedEncryptedTotalSize = this.getExpectedEncryptedTotalSize(expectedSize, thumbnails);
+            if (await this.shouldUseSmallFileUpload(expectedEncryptedTotalSize)) {
+                return this.initSmallFileUploader(expectedSize, stream, thumbnails, onProgress);
+            }
         }
 
         const uploader = await this.initStreamUploader();
         return uploader.start(stream, thumbnails, onProgress);
     }
 
-    private getExpectedEncryptedTotalSize(thumbnails: Thumbnail[]): number {
+    private getExpectedEncryptedTotalSize(expectedSize: number, thumbnails: Thumbnail[]): number {
         const thumbnailSize = thumbnails.reduce((acc, thumbnail) => acc + thumbnail.thumbnail.length, 0);
-        const totalSize = this.metadata.expectedSize + thumbnailSize;
+        const totalSize = expectedSize + thumbnailSize;
         const expectedEncryptedTotalSize = totalSize * 1.1; // 10% margin for encryption overhead
         return expectedEncryptedTotalSize;
     }
 
     protected abstract initSmallFileUploader(
+        expectedSize: number,
         stream: ReadableStream,
         thumbnails: Thumbnail[],
         onProgress?: (uploadedBytes: number) => void,
@@ -216,6 +225,7 @@ export class FileUploader extends Uploader {
     }
 
     protected async initSmallFileUploader(
+        expectedSize: number,
         stream: ReadableStream,
         thumbnails: Thumbnail[],
         onProgress?: (uploadedBytes: number) => void,
@@ -226,7 +236,7 @@ export class FileUploader extends Uploader {
             this.cryptoService,
             this.manager,
             blockVerifier,
-            this.metadata,
+            { ...this.metadata, expectedSize },
             this.onFinish,
             this.signal,
             this.parentFolderUid,
@@ -288,6 +298,7 @@ export class FileRevisionUploader extends Uploader {
     }
 
     protected async initSmallFileUploader(
+        expectedSize: number,
         stream: ReadableStream,
         thumbnails: Thumbnail[],
         onProgress?: (uploadedBytes: number) => void,
@@ -298,7 +309,7 @@ export class FileRevisionUploader extends Uploader {
             this.cryptoService,
             this.manager,
             blockVerifier,
-            this.metadata,
+            { ...this.metadata, expectedSize },
             this.onFinish,
             this.signal,
             this.nodeUid,

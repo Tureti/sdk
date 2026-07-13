@@ -1,10 +1,10 @@
 import { IntegrityError } from '../../errors';
-import { Thumbnail, ThumbnailType, UploadMetadata } from '../../interface';
+import { Thumbnail, ThumbnailType } from '../../interface';
 import { mergeUint8Arrays } from '../utils';
 import { UploadAPIService } from './apiService';
 import { SmallFileBlockVerifier } from './blockVerifier';
 import { UploadCryptoService } from './cryptoService';
-import { NodeCrypto } from './interface';
+import { NodeCrypto, UploadMetadataWithKnownSize } from './interface';
 import { UploadManager } from './manager';
 import { SmallFileRevisionUploader, SmallFileUploader } from './smallFileUploader';
 import { UploadTelemetry } from './telemetry';
@@ -49,7 +49,7 @@ describe('SmallFileUploader', () => {
     let cryptoService: jest.Mocked<UploadCryptoService>;
     let uploadManager: jest.Mocked<UploadManager>;
     let blockVerifier: jest.Mocked<SmallFileBlockVerifier>;
-    let metadata: UploadMetadata;
+    let metadata: UploadMetadataWithKnownSize;
     let onFinish: jest.Mock;
     let abortController: AbortController;
 
@@ -137,7 +137,7 @@ describe('SmallFileUploader', () => {
         metadata = {
             expectedSize: 3,
             mediaType: 'application/octet-stream',
-        } as UploadMetadata;
+        } as UploadMetadataWithKnownSize;
 
         onFinish = jest.fn();
         abortController = new AbortController();
@@ -362,7 +362,7 @@ describe('SmallFileRevisionUploader', () => {
     let cryptoService: jest.Mocked<UploadCryptoService>;
     let uploadManager: jest.Mocked<UploadManager>;
     let blockVerifier: jest.Mocked<SmallFileBlockVerifier>;
-    let metadata: UploadMetadata;
+    let metadata: UploadMetadataWithKnownSize;
     let onFinish: jest.Mock;
     let abortController: AbortController;
 
@@ -452,7 +452,7 @@ describe('SmallFileRevisionUploader', () => {
         metadata = {
             expectedSize: 3,
             mediaType: 'application/octet-stream',
-        } as UploadMetadata;
+        } as UploadMetadataWithKnownSize;
 
         onFinish = jest.fn();
         abortController = new AbortController();

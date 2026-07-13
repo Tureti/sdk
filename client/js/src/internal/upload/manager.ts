@@ -130,7 +130,8 @@ export class UploadManager {
                 armoredEncryptedName: generatedNodeCrypto.encryptedNode.encryptedName,
                 hash: generatedNodeCrypto.encryptedNode.hash,
                 mediaType: metadata.mediaType,
-                intendedUploadSize: reduceSizePrecision(metadata.expectedSize),
+                intendedUploadSize:
+                    metadata.expectedSize !== null ? reduceSizePrecision(metadata.expectedSize) : undefined,
                 armoredNodeKey: generatedNodeCrypto.nodeKeys.encrypted.armoredKey,
                 armoredNodePassphrase: generatedNodeCrypto.nodeKeys.encrypted.armoredPassphrase,
                 armoredNodePassphraseSignature: generatedNodeCrypto.nodeKeys.encrypted.armoredPassphraseSignature,
@@ -352,7 +353,8 @@ export class UploadManager {
 
         const { nodeRevisionUid } = await this.apiService.createDraftRevision(nodeUid, {
             currentRevisionUid: node.activeRevision.value.uid,
-            intendedUploadSize: reduceSizePrecision(metadata.expectedSize),
+            intendedUploadSize:
+                metadata.expectedSize !== null ? reduceSizePrecision(metadata.expectedSize) : undefined,
         });
 
         return {

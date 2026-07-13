@@ -1,13 +1,13 @@
 import { PrivateKey, SessionKey } from '../../crypto';
 import { AbortError, IntegrityError } from '../../errors';
-import { Logger, Thumbnail, ThumbnailType, UploadMetadata } from '../../interface';
+import { Logger, Thumbnail, ThumbnailType } from '../../interface';
 import { getErrorMessage } from '../errors';
 import { generateFileExtendedAttributes } from '../nodes';
 import { mergeUint8Arrays } from '../utils';
 import { SmallFileBlockVerifier } from './blockVerifier';
 import { UploadCryptoService } from './cryptoService';
 import { UploadDigests } from './digests';
-import { NodeCrypto } from './interface';
+import { NodeCrypto, UploadMetadataWithKnownSize } from './interface';
 import { UploadManager } from './manager';
 import { readStreamToUint8Array } from './streamReader';
 import { MAX_BLOCK_ENCRYPTION_RETRIES } from './streamUploader';
@@ -33,7 +33,7 @@ abstract class SmallUploader {
         protected cryptoService: UploadCryptoService,
         protected manager: UploadManager,
         protected blockVerifier: SmallFileBlockVerifier,
-        protected metadata: UploadMetadata,
+        protected metadata: UploadMetadataWithKnownSize,
         protected onFinish: () => void,
         protected signal: AbortSignal | undefined,
     ) {
@@ -283,7 +283,7 @@ export class SmallFileUploader extends SmallUploader {
         cryptoService: UploadCryptoService,
         manager: UploadManager,
         blockVerifier: SmallFileBlockVerifier,
-        metadata: UploadMetadata,
+        metadata: UploadMetadataWithKnownSize,
         onFinish: () => void,
         signal: AbortSignal | undefined,
         private parentFolderUid: string,
@@ -335,7 +335,7 @@ export class SmallFileRevisionUploader extends SmallUploader {
         cryptoService: UploadCryptoService,
         manager: UploadManager,
         blockVerifier: SmallFileBlockVerifier,
-        metadata: UploadMetadata,
+        metadata: UploadMetadataWithKnownSize,
         onFinish: () => void,
         signal: AbortSignal | undefined,
         private nodeUid: string,

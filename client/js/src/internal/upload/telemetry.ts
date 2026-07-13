@@ -41,7 +41,7 @@ export class UploadTelemetry {
         });
     }
 
-    async uploadInitFailed(parentFolderUid: string, error: unknown, expectedSize: number) {
+    async uploadInitFailed(parentFolderUid: string, error: unknown, expectedSize: number | null) {
         const { volumeId } = splitNodeUid(parentFolderUid);
         const errorCategory = getErrorCategory(error);
 
@@ -59,7 +59,7 @@ export class UploadTelemetry {
         });
     }
 
-    async uploadFailed(revisionUid: string, error: unknown, uploadedSize: number, expectedSize: number) {
+    async uploadFailed(revisionUid: string, error: unknown, uploadedSize: number, expectedSize: number | null) {
         const { volumeId } = splitNodeRevisionUid(revisionUid);
         const errorCategory = getErrorCategory(error);
 
@@ -89,7 +89,7 @@ export class UploadTelemetry {
         volumeId: string,
         options: {
             uploadedSize: number;
-            expectedSize: number;
+            expectedSize: number | null;
             error?: MetricsUploadErrorType;
             originalError?: unknown;
         },
@@ -105,8 +105,10 @@ export class UploadTelemetry {
             eventName: 'upload',
             volumeType,
             approximateUploadedSize: reduceSizePrecision(options.uploadedSize),
-            approximateExpectedSize: reduceSizePrecision(options.expectedSize),
+            approximateExpectedSize:
+                options.expectedSize !== null ? reduceSizePrecision(options.expectedSize) : undefined,
             ...options,
+            expectedSize: options.expectedSize ?? undefined,
         });
     }
 }
