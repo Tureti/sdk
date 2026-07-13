@@ -173,6 +173,14 @@ export class AlbumsManager {
         }
 
         await this.apiService.updateAlbum(nodeUid, updates.coverPhotoNodeUid, nameUpdate);
+
+        // Reflect the newly set cover on the returned node, mirroring the name
+        // update above. Without this the cover comes from the pre-update cache
+        // and lags the change the caller just made.
+        if (updates.coverPhotoNodeUid !== undefined && newNode.album) {
+            newNode.album = { ...newNode.album, coverPhotoNodeUid: updates.coverPhotoNodeUid };
+        }
+
         await this.nodesService.notifyNodeChanged(nodeUid);
         return newNode;
     }
