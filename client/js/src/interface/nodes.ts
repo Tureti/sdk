@@ -102,6 +102,7 @@ export type NodeEntity = {
     activeRevision?: Result<Revision, Error>;
     folder?: {
         claimedModificationTime?: Date;
+        isImported: boolean;
     };
     /**
      * Provides an ID for the event scope.
@@ -182,6 +183,10 @@ export type Revision = {
      * Encrypted size of the revision, as stored on the server.
      */
     storageSize: number;
+    /**
+     * Whether the revision was imported by Easy Switch on behalf of the user.
+     */
+    isImported: boolean;
     /**
      * Raw size of the revision, as stored in extended attributes.
      */

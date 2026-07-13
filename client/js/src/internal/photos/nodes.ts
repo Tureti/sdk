@@ -18,7 +18,10 @@ type PostLoadLinksMetadataRequest = Extract<
 type PostLoadLinksMetadataResponse =
     drivePaths['/drive/photos/volumes/{volumeID}/links']['post']['responses']['200']['content']['application/json'];
 
-export class PhotosNodesAPIService extends NodeAPIServiceBase<EncryptedPhotoNode, PostLoadLinksMetadataResponse['Links'][0]> {
+export class PhotosNodesAPIService extends NodeAPIServiceBase<
+    EncryptedPhotoNode,
+    PostLoadLinksMetadataResponse['Links'][0]
+> {
     protected async fetchNodeMetadata(volumeId: string, linkIds: string[], signal?: AbortSignal) {
         const response = await this.apiService.post<PostLoadLinksMetadataRequest, PostLoadLinksMetadataResponse>(
             `drive/photos/volumes/${volumeId}/links`,
@@ -43,10 +46,15 @@ export class PhotosNodesAPIService extends NodeAPIServiceBase<EncryptedPhotoNode
         );
 
         if (link.Link.Type === 2 && link.Photo) {
+            const photo = link.Photo;
             const node = linkToEncryptedNode(
                 this.logger,
                 volumeId,
-                { ...link, File: link.Photo, Folder: null },
+                {
+                    ...link,
+                    File: photo,
+                    Folder: null,
+                },
                 isOwnVolumeId,
             );
             if (!node) {
@@ -161,7 +169,11 @@ export class PhotosNodesCache extends NodesCacheBase<DecryptedPhotoNode> {
     }
 }
 
-export class PhotosNodesAccess extends NodesAccessBase<EncryptedPhotoNode, DecryptedPhotoNode, PhotosNodesCryptoService> {
+export class PhotosNodesAccess extends NodesAccessBase<
+    EncryptedPhotoNode,
+    DecryptedPhotoNode,
+    PhotosNodesCryptoService
+> {
     async getParentKeys(
         node: Pick<EncryptedPhotoNode, 'uid' | 'parentUid' | 'shareId' | 'photo'>,
     ): Promise<Pick<DecryptedNodeKeys, 'key' | 'hashKey'>> {

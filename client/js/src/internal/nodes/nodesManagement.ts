@@ -434,6 +434,10 @@ export abstract class NodesManagementBase<
             keyAuthor: resultOk(encryptedCrypto.signatureEmail || null),
             nameAuthor: resultOk(encryptedCrypto.signatureEmail || null),
             name: resultOk(name),
+            // A freshly created folder is never imported.
+            folder: {
+                isImported: false,
+            },
             treeEventScopeId: splitNodeUid(nodeUid).volumeId,
         };
     }

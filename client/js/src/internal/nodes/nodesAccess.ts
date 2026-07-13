@@ -587,6 +587,7 @@ export function parseNode(logger: Logger, unparsedNode: DecryptedUnparsedNode): 
                       storageSize: unparsedNode.activeRevision.value.storageSize,
                       contentAuthor: unparsedNode.activeRevision.value.contentAuthor,
                       thumbnails: unparsedNode.activeRevision.value.thumbnails,
+                      isImported: unparsedNode.activeRevision.value.isImported,
                       ...extendedAttributes,
                       claimedDigests: {
                           ...extendedAttributes?.claimedDigests,
@@ -607,7 +608,12 @@ export function parseNode(logger: Logger, unparsedNode: DecryptedUnparsedNode): 
         name: nodeName,
         isStale: false,
         activeRevision: undefined,
-        folder: extendedAttributes,
+        folder: unparsedNode.folder
+            ? {
+                  ...extendedAttributes,
+                  isImported: unparsedNode.folder.isImported,
+              }
+            : undefined,
         treeEventScopeId,
     };
 }

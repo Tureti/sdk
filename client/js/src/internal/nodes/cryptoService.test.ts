@@ -137,6 +137,9 @@ describe('nodesCryptoService', () => {
                     role: MemberRole.Admin,
                     inviteTime: new Date(1234567890000),
                 },
+                folder: {
+                    isImported: false,
+                },
                 encryptedCrypto: {
                     signatureEmail: 'signatureEmail',
                     nameSignatureEmail: 'nameSignatureEmail',
@@ -538,7 +541,7 @@ describe('nodesCryptoService', () => {
                 verifyResult(
                     result,
                     {
-                        folder: undefined,
+                        folder: { isImported: false },
                         errors: [error],
                     },
                     'noKeys',

@@ -80,6 +80,7 @@ function generateAPIPhotoNode(linkOverrides = {}, photoOverrides = {}, overrides
                 SignatureEmail: 'revSigEmail',
                 XAttr: '{photo}',
                 EncryptedSize: 12,
+                IsImported: false,
             },
             MediaType: 'image/jpeg',
             ContentKeyPacket: 'contentKeyPacket',

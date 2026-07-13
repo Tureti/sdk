@@ -24,6 +24,7 @@ function generateAPIFileNode(linkOverrides = {}, overrides = {}, fileOverrides =
                 SignatureEmail: 'revSigEmail',
                 XAttr: '{file}',
                 EncryptedSize: 12,
+                IsImported: false,
             },
             ...fileOverrides,
         },
@@ -42,6 +43,7 @@ function generateAPIFolderNode(linkOverrides = {}, overrides = {}) {
         Folder: {
             XAttr: '{folder}',
             NodeHashKey: 'nodeHashKey',
+            IsImported: false,
         },
         ...overrides,
     };
@@ -105,6 +107,7 @@ function generateFileNode(overrides = {}, encryptedCryptoOverrides = {}) {
                 storageSize: 12,
                 signatureEmail: 'revSigEmail',
                 armoredExtendedAttributes: '{file}',
+                isImported: false,
                 thumbnails: [],
             },
             ...encryptedCryptoOverrides,
@@ -118,6 +121,9 @@ function generateFolderNode(overrides = {}, encryptedCryptoOverrides = {}) {
     return {
         ...node,
         type: NodeType.Folder,
+        folder: {
+            isImported: false,
+        },
         encryptedCrypto: {
             ...node.encryptedCrypto,
             folder: {

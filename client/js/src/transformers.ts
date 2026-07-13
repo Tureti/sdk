@@ -165,6 +165,7 @@ function convertInternalRevision(revision: InternalRevision): PublicRevision {
         creationTime: revision.creationTime,
         contentAuthor: revision.contentAuthor,
         storageSize: revision.storageSize,
+        isImported: revision.isImported,
         claimedSize: revision.claimedSize,
         claimedModificationTime: revision.claimedModificationTime,
         claimedDigests: revision.claimedDigests,

@@ -167,6 +167,10 @@ export class NodesCryptoService {
         let folder;
         let folderExtendedAttributesAuthor;
         if ('folder' in node.encryptedCrypto) {
+            folder = {
+                isImported: node.folder?.isImported ?? false,
+            };
+
             const folderExtendedAttributesVerificationKeys = node.encryptedCrypto.signatureEmail
                 ? signatureEmailKeys
                 : [key];
@@ -194,6 +198,7 @@ export class NodesCryptoService {
             try {
                 const extendedAttributesResult = await folderExtendedAttributesPromise;
                 folder = {
+                    ...folder,
                     extendedAttributes: extendedAttributesResult.extendedAttributes,
                 };
                 folderExtendedAttributesAuthor = extendedAttributesResult.author;
@@ -505,6 +510,7 @@ export class NodesCryptoService {
             extendedAttributes,
             thumbnails: encryptedRevision.thumbnails,
             sha1Verified: encryptedRevision.sha1Verified,
+            isImported: encryptedRevision.isImported,
         };
     }
 

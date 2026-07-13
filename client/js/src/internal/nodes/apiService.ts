@@ -701,6 +701,9 @@ export function linkToEncryptedNode(
     if (link.Link.Type === 1 && link.Folder) {
         return {
             ...baseNodeMetadata,
+            folder: {
+                isImported: link.Folder.IsImported,
+            },
             encryptedCrypto: {
                 ...baseCryptoNodeMetadata,
                 folder: {
@@ -734,6 +737,7 @@ export function linkToEncryptedNode(
                     storageSize: link.File.ActiveRevision.EncryptedSize,
                     signatureEmail: link.File.ActiveRevision.SignatureEmail || undefined,
                     armoredExtendedAttributes: link.File.ActiveRevision.XAttr || undefined,
+                    isImported: link.File.ActiveRevision.IsImported,
                     thumbnails:
                         link.File.ActiveRevision.Thumbnails?.map((thumbnail) =>
                             transformThumbnail(volumeId, link.Link.LinkID, thumbnail),
@@ -864,6 +868,7 @@ function transformRevisionResponse(
         armoredExtendedAttributes: revision.XAttr || undefined,
         thumbnails: revision.Thumbnails?.map((thumbnail) => transformThumbnail(volumeId, nodeId, thumbnail)) || [],
         sha1Verified: revision.ChecksumVerified,
+        isImported: revision.IsImported,
     };
 }
 

@@ -462,6 +462,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/drive/volumes/{volumeID}/folders/{linkID}/calculate-descendents-size": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Calculate size of folder
+         * @description Calculates the size of a folder, includes all active AND trashed nodes
+         */
+        get: operations["get_drive-volumes-{volumeID}-folders-{linkID}-calculate-descendents-size"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/drive/shares/{shareID}/folders": {
         parameters: {
             query?: never;
@@ -3876,7 +3896,7 @@ export interface components {
             VolumeID: components["schemas"]["Id"];
             SyncState: components["schemas"]["DeviceSyncState"];
             Type: components["schemas"]["DeviceType"];
-            /** @description UNIX timestamp when the Device got last synced */
+            /** @description UNIX timestamp (in seconds) when the Device got last synced */
             LastSyncTime?: number | null;
             CreateTime: number;
             ModifyTime: number;
@@ -3929,7 +3949,7 @@ export interface components {
             /** @default null */
             SyncState: components["schemas"]["DeviceSyncState"] | null;
             /**
-             * @description UNIX timestamp when the Device got last synced. Optional
+             * @description UNIX timestamp (in seconds) when the Device got last synced. Optional
              * @default null
              */
             LastSyncTime: number | null;
@@ -4274,6 +4294,8 @@ export interface components {
             FolderProperties: {
                 /** @description Node hash key (signed since 1st August 2021 with either node or address key, after 1st May 2022 (on web, iOS unknown) changed to node key) */
                 NodeHashKey?: string;
+                /** @description Whether the folder was imported by Easy Switch on behalf of the user */
+                Imported?: boolean;
             } | null;
             /** @description ProtonDocument properties; optional */
             DocumentProperties?: {
@@ -4313,7 +4335,7 @@ export interface components {
         EventResponseDto: {
             EventID: components["schemas"]["ShortId"];
             EventType: components["schemas"]["EventType"];
-            /** @description Event creation timestamp */
+            /** @description Event creation UNIX timestamp (in seconds) */
             CreateTime: number;
             Link: {
                 LinkID: components["schemas"]["Id"];
@@ -4399,6 +4421,22 @@ export interface components {
             Refresh: boolean;
             /** @description true if client should skip SDK-side quota checks (e.g. user has an active free upload timer) */
             DisableSdkQuotaChecks: boolean;
+            /**
+             * ProtonResponseCode
+             * @example 1000
+             * @enum {integer}
+             */
+            Code: 1000;
+        };
+        FolderSizeResponseDto: {
+            /** @description VolumeID of the link */
+            VolumeID: components["schemas"]["Id"];
+            /** @description LinkID whose descendents size is calculated */
+            LinkID: components["schemas"]["Id"];
+            /** @description Sum of sizes of all descendents of the link in bytes visible to the user (active and trash) */
+            DescendentsSize: number;
+            /** @description Number of descendents (files AND folders) of the link visible to the user (active and trash) */
+            DescendentsCount: number;
             /**
              * ProtonResponseCode
              * @example 1000
@@ -4686,6 +4724,8 @@ export interface components {
             Thumbnails: components["schemas"]["ThumbnailDto"][];
             /** Format: email */
             SignatureEmail?: string | null;
+            /** @description Whether the revision was imported by Easy Switch on behalf of the user */
+            IsImported: boolean;
         };
         FileDto: {
             ActiveRevision: components["schemas"]["ActiveRevisionDto"] | null;
@@ -4738,6 +4778,8 @@ export interface components {
         FolderDto: {
             NodeHashKey?: components["schemas"]["PGPMessage"] | null;
             XAttr?: components["schemas"]["PGPMessage"] | null;
+            /** @description Whether the folder was imported by Easy Switch on behalf of the user */
+            IsImported: boolean;
         };
         FolderDetailsDto: {
             Link: components["schemas"]["LinkDto"];
@@ -4788,7 +4830,7 @@ export interface components {
             LinkID: components["schemas"]["Id"];
             /** @description Name, reusing same session key as previously. */
             Name: components["schemas"]["PGPMessage"];
-            /** @description Node passphrase, reusing same session key as previously. */
+            /** @description Node passphrase, reusing same session key as previously. The data packet may be omitted for non-anonymous links; the existing one is reused. Anonymous links must include the data packet. */
             NodePassphrase: components["schemas"]["PGPMessage"];
             /** @description Name hash */
             Hash: string;
@@ -4944,7 +4986,7 @@ export interface components {
             NodesWithMissingNodeHashKey: components["schemas"]["UpdateMissingHashKeyItemDto"][];
         };
         CommitRevisionPhotoDto: {
-            /** @description Photo capture timestamp, use negative values for times before 1970 */
+            /** @description Photo capture timestamp (in seconds), use negative values for times before 1970 */
             CaptureTime: number;
             /** @description Photo content hash, lowercase hex representation of HMAC SHA256 of SHA1 content using parent folder's hash key [ hmacSha256(folder hash key, sha1(plain content)) ] */
             ContentHash: string;
@@ -5140,6 +5182,8 @@ export interface components {
             /** @description Whether the checksum in xattr of the revision content was verified by the client during upload */
             ChecksumVerified: boolean;
             ClientUID: string | null;
+            /** @description Whether the revision was imported by Easy Switch on behalf of the user */
+            IsImported: boolean;
             /** @default null */
             CreateTime: number | null;
             /**
@@ -5349,7 +5393,7 @@ export interface components {
             /** @description Passphrase for reported Link's Node key, unencrypted, as a string, escaped for JSON. */
             ResourcePassphrase: string;
             /**
-             * @description The user declares the port is submitted in good-faith (bona fide); Must always be true, but requires specific user-action (opt-in)
+             * @description The user declares the report is submitted in good-faith (bona fide); Must always be true, but requires specific user-action (opt-in)
              * @default null
              * @enum {boolean|null}
              */
@@ -5520,7 +5564,7 @@ export interface components {
              */
             PreviousPageLastLinkID: components["schemas"]["Id"] | null;
             /**
-             * @description The minimum capture time of photos as UNIX timestamp (to filter out older photos)
+             * @description The minimum capture time of photos as UNIX timestamp (in seconds; to filter out older photos)
              * @default null
              */
             MinimumCaptureTime: number | null;
@@ -5529,7 +5573,7 @@ export interface components {
         };
         PhotoListingRelatedItemResponse: {
             LinkID: components["schemas"]["Id"];
-            /** @description Unix timestamp of when the photo was taken as extracted by client from exif */
+            /** @description Unix timestamp (in seconds) of when the photo was taken as extracted by client from exif */
             CaptureTime: number;
             /** @description File name hash */
             Hash: string;
@@ -5538,7 +5582,7 @@ export interface components {
         };
         PhotoListingItemResponse: {
             LinkID: components["schemas"]["Id"];
-            /** @description Unix timestamp of when the photo was taken as extracted by client from exif */
+            /** @description Unix timestamp (in seconds) of when the photo was taken as extracted by client from exif */
             CaptureTime: number;
             /** @description File name hash */
             Hash: string;
@@ -5568,6 +5612,8 @@ export interface components {
             Thumbnails: components["schemas"]["ThumbnailDto"][];
             /** Format: email */
             SignatureEmail?: string | null;
+            /** @description Whether the revision was imported by Easy Switch on behalf of the user */
+            IsImported: boolean;
         };
         PhotoAlbumDto: {
             AlbumLinkID: components["schemas"]["Id"];
@@ -5642,7 +5688,7 @@ export interface components {
             Tags: components["schemas"]["TagType"][];
         };
         UpdatePhotoCaptureTimeRequestDto: {
-            /** @description Unix timestamp used to determine position in timeline */
+            /** @description Unix timestamp (in seconds) used to determine position in timeline */
             CaptureTime: number;
         };
         UpdateXAttrRequest: {
@@ -5943,7 +5989,7 @@ export interface components {
         };
         PhotoResponseDto: {
             LinkID: components["schemas"]["Id"];
-            /** @description Unix timestamp of when the photo was taken as extracted by client from exif. Negative values represent times before 1970 */
+            /** @description Unix timestamp (in seconds) of when the photo was taken as extracted by client from exif. Negative values represent times before 1970 */
             CaptureTime: number;
             MainPhotoLinkID: components["schemas"]["Id"] | null;
             /** @description File name hash */
@@ -5985,6 +6031,8 @@ export interface components {
             /** @description Whether the checksum in xattr of the revision content was verified by the client during upload */
             ChecksumVerified: boolean;
             ClientUID?: string | null;
+            /** @description Whether the revision was imported by Easy Switch on behalf of the user */
+            IsImported: boolean;
             /** @default null */
             CreateTime: number | null;
             /**
@@ -6028,7 +6076,7 @@ export interface components {
             Name: components["schemas"]["PGPMessage"];
             Size: number;
             MIMEType: string;
-            /** @description UNIX timestamp after which this link is no longer accessible */
+            /** @description UNIX timestamp (in seconds) after which this link is no longer accessible */
             ExpirationTime?: number | null;
             ContentKeyPacket: components["schemas"]["BinaryString"];
             BlockURLs: components["schemas"]["ThumbnailURLInfoResponseDto"][];
@@ -6135,7 +6183,7 @@ export interface components {
             /** @description Maximum number of times this link can be accessed. 0 for infinite */
             MaxAccesses: number;
             /**
-             * @description UNIX timestamp after which this link is no longer accessible. Use this or ExpirationDuration for a relative expiration period. Max 90 days from now. Optional
+             * @description UNIX timestamp (in seconds) after which this link is no longer accessible. Use this or ExpirationDuration for a relative expiration period. Max 90 days from now. Optional
              * @default null
              */
             ExpirationTime: number | null;
@@ -6151,7 +6199,7 @@ export interface components {
             Name: components["schemas"]["PGPMessage"] | null;
         };
         UpdateShareURLRequestDto: {
-            /** @description UNIX timestamp after which this link is no longer accessible. Use this or ExpirationDuration for a relative expiration period. Max 90 days from now. */
+            /** @description UNIX timestamp (in seconds) after which this link is no longer accessible. Use this or ExpirationDuration for a relative expiration period. Max 90 days from now. */
             ExpirationTime: number;
             /** @description Number of seconds after which this link is no longer accessible. Maximum 90 days. */
             ExpirationDuration?: number | null;
@@ -6243,7 +6291,7 @@ export interface components {
             /** @description Nullable; To report only a particular Revision of a Link in the reported Share */
             RevisionID: components["schemas"]["Id"] | null;
             /**
-             * @description The user declares the port is submitted in good-faith (bona fide); Must always be true, but requires specific user-action (opt-in)
+             * @description The user declares the report is submitted in good-faith (bona fide); Must always be true, but requires specific user-action (opt-in)
              * @enum {boolean}
              */
             BonaFide: true;
@@ -8443,6 +8491,67 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ListEventsV2ResponseDto"];
                 };
+            };
+        };
+    };
+    "get_drive-volumes-{volumeID}-folders-{linkID}-calculate-descendents-size": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                volumeID: string;
+                linkID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    "x-pm-code": 1000;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderSizeResponseDto"];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Potential codes and their meaning:
+                         *      - 2001: requested link is not a folder
+                         *      */
+                        Code?: number;
+                    };
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Potential codes and their meaning:
+                         *      - 2011: insufficient permissions
+                         *      - 200301: max folder depth reached; cannot calculate size on large folders
+                         *      - 2501: folder was not found
+                         *      */
+                        Code?: number;
+                    };
+                };
+            };
+            /** @description This endpoint is heavily rate-limited; ensure proper 429-handling */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -10853,7 +10962,7 @@ export interface operations {
                 PageSize?: components["schemas"]["ListPhotosParameters"]["PageSize"];
                 /** @description The link ID of the last photo from the previous page when requesting secondary pages */
                 PreviousPageLastLinkID?: components["schemas"]["ListPhotosParameters"]["PreviousPageLastLinkID"];
-                /** @description The minimum capture time of photos as UNIX timestamp (to filter out older photos) */
+                /** @description The minimum capture time of photos as UNIX timestamp (in seconds; to filter out older photos) */
                 MinimumCaptureTime?: components["schemas"]["ListPhotosParameters"]["MinimumCaptureTime"];
                 Tag?: components["schemas"]["ListPhotosParameters"]["Tag"];
             };

@@ -60,6 +60,10 @@ interface BaseNode {
  */
 export interface EncryptedNode extends BaseNode {
     encryptedCrypto: EncryptedNodeFolderCrypto | EncryptedNodeFileCrypto | EncryptedNodeAlbumCrypto;
+    
+    folder?: {
+        isImported: boolean;
+    };
 }
 
 export interface EncryptedNodeCrypto {
@@ -127,6 +131,7 @@ export interface DecryptedUnparsedNode extends Omit<BaseNode, 'membership'> {
     activeRevision?: Result<DecryptedUnparsedRevision, Error>;
     folder?: {
         extendedAttributes?: string;
+        isImported: boolean;
     };
     errors?: unknown[];
 }
@@ -144,6 +149,7 @@ export interface DecryptedNode
     activeRevision?: Result<DecryptedRevision, Error>;
     folder?: {
         claimedModificationTime?: Date;
+        isImported: boolean;
     };
 }
 
@@ -182,12 +188,14 @@ export interface EncryptedRevision extends BaseRevision {
     signatureEmail?: string;
     armoredExtendedAttributes?: string;
     sha1Verified?: boolean;
+    isImported: boolean;
 }
 
 export interface DecryptedUnparsedRevision extends BaseRevision {
     contentAuthor: Author;
     extendedAttributes?: string;
     sha1Verified?: boolean;
+    isImported: boolean;
 }
 
 export interface DecryptedRevision extends Revision {

@@ -98,6 +98,7 @@ describe('nodesCache', () => {
         const node = generateNode('node1', '', {
             folder: {
                 claimedModificationTime: new Date('2021-01-01'),
+                isImported: false,
             },
         });
 
@@ -108,6 +109,7 @@ describe('nodesCache', () => {
             ...node,
             folder: {
                 claimedModificationTime: new Date('2021-01-01'),
+                isImported: false,
             },
         });
     });
@@ -119,6 +121,7 @@ describe('nodesCache', () => {
             creationTime: new Date('2021-01-01'),
             storageSize: 100,
             contentAuthor: resultOk('test@test.com'),
+            isImported: false,
             claimedModificationTime: new Date('2021-02-01'),
             claimedSize: 100,
             claimedDigests: {
@@ -148,6 +151,7 @@ describe('nodesCache', () => {
             creationTime: new Date('2021-01-01'),
             storageSize: 100,
             contentAuthor: resultOk('test@test.com'),
+            isImported: false,
             claimedModificationTime: undefined,
         });
         const node = generateNode('node1', '', { activeRevision });

@@ -1,13 +1,14 @@
 import { PrivateKey } from '../../crypto';
 import { DecryptionError, ProtonDriveError } from '../../errors';
-import { NodeType } from '../../interface';
+import { NodeType, resultOk, RevisionState } from '../../interface';
+import { getMockLogger } from '../../tests/logger';
 import { getMockTelemetry } from '../../tests/telemetry';
 import { NodeAPIService } from './apiService';
 import { NodesCache } from './cache';
 import { NodesCryptoCache } from './cryptoCache';
 import { NodesCryptoService } from './cryptoService';
 import { DecryptedNode, DecryptedNodeKeys, DecryptedUnparsedNode, EncryptedNode, SharesService } from './interface';
-import { NodesAccess } from './nodesAccess';
+import { NodesAccess, parseNode } from './nodesAccess';
 
 describe('nodesAccess', () => {
     let apiService: NodeAPIService;
@@ -828,5 +829,117 @@ describe('nodesAccess', () => {
             await access.notifyNodeDeleted('v1~n1');
             expect(cache.removeNodes).toHaveBeenCalledWith(['v1~n1']);
         });
+    });
+});
+
+describe('parseNode', () => {
+    const logger = getMockLogger();
+
+    const baseUnparsedNode = {
+        uid: 'volumeId~nodeId',
+        parentUid: 'volumeId~parentId',
+        encryptedName: 'encName',
+        hash: 'hash',
+        type: NodeType.File,
+        creationTime: new Date('2024-01-01'),
+        modificationTime: new Date('2024-01-02'),
+        isShared: false,
+        isSharedPublicly: false,
+        directRole: 'viewer' as any,
+        ownedBy: { email: 'owner@example.com' },
+        name: resultOk('filename.txt'),
+        keyAuthor: resultOk('author@example.com'),
+        nameAuthor: resultOk('author@example.com'),
+    };
+
+    it('propagates isImported=true from file active revision', () => {
+        const unparsedNode = {
+            ...baseUnparsedNode,
+            type: NodeType.File,
+            activeRevision: resultOk({
+                uid: 'volumeId~nodeId~revId',
+                state: RevisionState.Active,
+                creationTime: new Date('2024-01-01'),
+                storageSize: 100,
+                contentAuthor: resultOk('author@example.com'),
+                thumbnails: [],
+                isImported: true,
+            }),
+            folder: undefined,
+        };
+
+        const result = parseNode(logger, unparsedNode as any);
+
+        expect(result.activeRevision?.ok).toBe(true);
+        expect((result.activeRevision as any)?.value.isImported).toBe(true);
+    });
+
+    it('propagates isImported=false from file active revision', () => {
+        const unparsedNode = {
+            ...baseUnparsedNode,
+            type: NodeType.File,
+            activeRevision: resultOk({
+                uid: 'volumeId~nodeId~revId',
+                state: RevisionState.Active,
+                creationTime: new Date('2024-01-01'),
+                storageSize: 100,
+                contentAuthor: resultOk('author@example.com'),
+                thumbnails: [],
+                isImported: false,
+            }),
+            folder: undefined,
+        };
+
+        const result = parseNode(logger, unparsedNode as any);
+
+        expect((result.activeRevision as any)?.value.isImported).toBe(false);
+    });
+
+    it('propagates isImported=true from folder', () => {
+        const unparsedNode = {
+            ...baseUnparsedNode,
+            type: NodeType.Folder,
+            activeRevision: undefined,
+            folder: {
+                isImported: true,
+            },
+        };
+
+        const result = parseNode(logger, unparsedNode as any);
+
+        expect(result.folder?.isImported).toBe(true);
+    });
+
+    it('propagates isImported=false from folder', () => {
+        const unparsedNode = {
+            ...baseUnparsedNode,
+            type: NodeType.Folder,
+            activeRevision: undefined,
+            folder: {
+                isImported: false,
+            },
+        };
+
+        const result = parseNode(logger, unparsedNode as any);
+
+        expect(result.folder?.isImported).toBe(false);
+    });
+
+    it('preserves folder claimedModificationTime alongside isImported', () => {
+        const modTime = new Date('2024-06-01');
+        const unparsedNode = {
+            ...baseUnparsedNode,
+            type: NodeType.Folder,
+            activeRevision: undefined,
+            folder: {
+                extendedAttributes: JSON.stringify({ Common: { ModificationTime: modTime.toISOString() } }),
+                isImported: true,
+            },
+        };
+
+        const result = parseNode(logger, unparsedNode as any);
+
+        expect(result.folder?.isImported).toBe(true);
+        expect(result.folder?.claimedModificationTime).toEqual(modTime);
     });
 });
