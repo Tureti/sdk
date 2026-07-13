@@ -87,7 +87,8 @@ export class ApiClient {
 
             this.options.logger.info('Refreshing session');
 
-            const refreshed = await this.refreshSessionIfPossible();
+            const rejectedAccessToken = getAccessTokenFromHeaders(options.headers);
+            const refreshed = await this.refreshSessionIfPossible(rejectedAccessToken);
             if (!refreshed) {
                 return;
             }
@@ -107,7 +108,17 @@ export class ApiClient {
         };
     }
 
-    async refreshSessionIfPossible(): Promise<boolean> {
+    async refreshSessionIfPossible(rejectedAccessToken?: string): Promise<boolean> {
+        // If the current access token is already different from the rejected
+        // one, let's use the current access token without refreshing as
+        // another request already refreshed the session.
+        const currentAccessToken = this.options.credentials.accessToken;
+        if (currentAccessToken && currentAccessToken !== rejectedAccessToken) {
+            this.options.logger.debug('Skipping session refresh, another request already refreshed the session');
+            return true;
+        }
+
+        // Only one refresh can be in progress at a time.
         this.activeRefreshPromise ??= this.performTokenRefresh().finally(() => {
             this.activeRefreshPromise = null;
         });
@@ -153,6 +164,20 @@ export class ApiClient {
         });
         return true;
     }
+}
+
+function getAccessTokenFromHeaders(headers: HeadersInit | undefined): string | undefined {
+    if (!headers) {
+        return undefined;
+    }
+
+    const normalizedHeaders = headers instanceof Headers ? headers : new Headers(headers);
+    const authorization = normalizedHeaders.get('Authorization');
+    if (!authorization?.startsWith('Bearer ')) {
+        return undefined;
+    }
+
+    return authorization.slice('Bearer '.length);
 }
 
 function shouldSkipAuthRefreshForUrl(url: string): boolean {
