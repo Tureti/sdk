@@ -5,6 +5,9 @@
   },
   "contexts": {
     "Error": {
+      "A message is required when reporting copyright infringement or stolen data": [
+        "Bij het melden van een inbreuk op het auteursrecht of gestolen gegevens moet een bericht worden ingevuld"
+      ],
       "Bookmark password is not available": [
         "Bladwijzerwachtwoord is niet beschikbaar"
       ],
@@ -164,6 +167,9 @@
       ],
       "Node is not accessible": [
         "Node is niet toegankelijk"
+      ],
+      "Node is not accessible via a share": [
+        "Er is geen toegang tot de node via een gedeelde map"
       ],
       "Node is not shared": [
         "Node is niet gedeeld"
