@@ -215,13 +215,28 @@ public sealed class ProtonDriveClient
         return NodeOperations.GetAvailableNameAsync(this, parentUid, name, cancellationToken);
     }
 
-    public async ValueTask MoveNodesAsync(IEnumerable<NodeUid> uids, NodeUid newParentFolderUid, CancellationToken cancellationToken)
+    public async ValueTask<IReadOnlyDictionary<NodeUid, Result<Exception>>> MoveNodesAsync(
+        IEnumerable<NodeUid> uids,
+        NodeUid newParentFolderUid,
+        CancellationToken cancellationToken)
     {
         // FIXME: finalize the implementation that uses the batch move endpoint, and use it instead of this naïve code
+        var results = new Dictionary<NodeUid, Result<Exception>>();
+
         foreach (var uid in uids)
         {
-            await NodeOperations.MoveSingleAsync(this, uid, newParentFolderUid, newName: null, cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await NodeOperations.MoveSingleAsync(this, uid, newParentFolderUid, newName: null, cancellationToken).ConfigureAwait(false);
+                results[uid] = Result<Exception>.Success;
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                results[uid] = exception;
+            }
         }
+
+        return results;
     }
 
     public ValueTask RenameNodeAsync(NodeUid uid, string newName, string? newMediaType, CancellationToken cancellationToken)

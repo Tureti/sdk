@@ -40,6 +40,7 @@ import proton.drive.sdk.driveClientGetAvailableNameRequest
 import proton.drive.sdk.driveClientGetMyFilesFolderRequest
 import proton.drive.sdk.driveClientGetNodeRequest
 import proton.drive.sdk.driveClientLeaveSharedNodeRequest
+import proton.drive.sdk.driveClientMoveNodesRequest
 import proton.drive.sdk.driveClientRenameDeviceRequest
 import proton.drive.sdk.driveClientRenameRequest
 import proton.drive.sdk.driveClientRestoreNodesRequest
@@ -105,6 +106,21 @@ internal class InteropProtonDriveClient internal constructor(
                 cancellationTokenSourceHandle = source.handle
             }
         )
+    }
+
+    override suspend fun moveNodes(
+        nodeUids: List<NodeUid>,
+        newParentFolderUid: NodeUid,
+    ): List<NodeResultPair> = cancellationCoroutineScope { source ->
+        log(INFO, "moveNodes(${nodeUids.size} nodes)")
+        bridge.moveNodes(
+            driveClientMoveNodesRequest {
+                this.nodeUids += nodeUids.map { it.value }
+                this.newParentFolderUid = newParentFolderUid.value
+                clientHandle = handle
+                cancellationTokenSourceHandle = source.handle
+            }
+        ).toEntity()
     }
 
     override suspend fun createFolder(

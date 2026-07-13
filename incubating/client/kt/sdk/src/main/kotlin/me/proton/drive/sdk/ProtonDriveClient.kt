@@ -8,12 +8,14 @@ import me.proton.drive.sdk.entity.FileDownloaderRequest
 import me.proton.drive.sdk.entity.FileRevisionUploaderRequest
 import me.proton.drive.sdk.entity.FileUploaderRequest
 import me.proton.drive.sdk.entity.FolderNode
+import me.proton.drive.sdk.entity.NodeResultPair
 import me.proton.drive.sdk.entity.NodeUid
 import java.time.Instant
 
 interface ProtonDriveClient : ProtonSdkClient {
     suspend fun getAvailableName(parentFolderUid: NodeUid, name: String): String
     suspend fun rename(nodeUid: NodeUid, name: String, mediaType: String? = null)
+    suspend fun moveNodes(nodeUids: List<NodeUid>, newParentFolderUid: NodeUid): List<NodeResultPair>
     suspend fun createFolder(parentFolderUid: NodeUid, name: String, lastModificationTime: Instant? = null): FolderNode
     suspend fun getMyFilesFolder(): FolderNode
     fun enumerateFolderChildrenNodeUids(folderUid: NodeUid): Flow<NodeUid>

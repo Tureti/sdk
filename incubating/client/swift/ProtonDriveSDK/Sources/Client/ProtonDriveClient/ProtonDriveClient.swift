@@ -24,6 +24,7 @@ public actor ProtonDriveClient: Sendable, ProtonSDKClient {
     private enum OperationIdentifier: Hashable {
         case createFolder(UUID)
         case rename(UUID)
+        case moveNodes(UUID)
         case getAvailableName(UUID)
         case getNode(UUID)
         case getMyFilesRootFolder(UUID)
@@ -44,6 +45,7 @@ public actor ProtonDriveClient: Sendable, ProtonSDKClient {
             switch self {
             case .createFolder: return "createFolder"
             case .rename: return "rename"
+            case .moveNodes: return "moveNodes"
             case .getAvailableName: return "getAvailableName"
             case .getNode: return "getNode"
             case .getMyFilesRootFolder: return "getMyFilesRootFolder"
@@ -568,6 +570,27 @@ extension ProtonDriveClient {
 
     public func cancelRename(cancellationToken: UUID) async throws {
         try await cancelOperation(identifier: .rename(cancellationToken))
+    }
+
+    public func moveNodes(nodeUids: [SDKNodeUid], newParentFolderUid: SDKNodeUid, cancellationToken: UUID) async throws -> [NodeResult] {
+        let cancellationTokenSource = try await createCancellationTokenSource(.moveNodes(cancellationToken), logger)
+        defer {
+            freeCancellationTokenSourceIfNeeded(identifier: .moveNodes(cancellationToken))
+        }
+
+        let cancellationHandle = cancellationTokenSource.handle
+        let moveRequest = Proton_Drive_Sdk_DriveClientMoveNodesRequest.with {
+            $0.clientHandle = Int64(clientHandle)
+            $0.nodeUids = nodeUids.map { $0.sdkCompatibleIdentifier }
+            $0.newParentFolderUid = newParentFolderUid.sdkCompatibleIdentifier
+            $0.cancellationTokenSourceHandle = Int64(cancellationHandle)
+        }
+        let result: Proton_Drive_Sdk_NodeResultListResponse = try await SDKRequestHandler.send(moveRequest, logger: logger)
+        return result.results.compactMap { NodeResult(sdkNodeResult: $0) }
+    }
+
+    public func cancelMoveNodes(cancellationToken: UUID) async throws {
+        try await cancelOperation(identifier: .moveNodes(cancellationToken))
     }
 
 }

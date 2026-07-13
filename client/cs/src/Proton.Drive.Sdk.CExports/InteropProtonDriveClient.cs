@@ -283,6 +283,20 @@ internal static class InteropProtonDriveClient
         return results.ToInterop();
     }
 
+    public static async ValueTask<IMessage> HandleMoveNodesAsync(DriveClientMoveNodesRequest request)
+    {
+        var cancellationToken = Interop.GetCancellationToken(request.CancellationTokenSourceHandle);
+
+        var client = Interop.GetFromHandle<ProtonDriveClient>(request.ClientHandle);
+
+        var results = await client.MoveNodesAsync(
+            request.NodeUids.Select(NodeUid.Parse),
+            NodeUid.Parse(request.NewParentFolderUid),
+            cancellationToken).ConfigureAwait(false);
+
+        return results.ToInterop();
+    }
+
     public static async ValueTask<IMessage> HandleDeleteNodesAsync(DriveClientDeleteNodesRequest request)
     {
         var cancellationToken = Interop.GetCancellationToken(request.CancellationTokenSourceHandle);

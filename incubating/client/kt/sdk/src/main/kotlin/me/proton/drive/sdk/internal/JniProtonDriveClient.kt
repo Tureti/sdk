@@ -88,6 +88,13 @@ class JniProtonDriveClient internal constructor() : JniBaseProtonDriveSdk() {
         driveClientRename = request
     }
 
+    suspend fun moveNodes(
+        request: ProtonDriveSdk.DriveClientMoveNodesRequest,
+    ): ProtonDriveSdk.NodeResultListResponse =
+        executeOnce("moveNodes", NodeResultListResponseConverter().asCallback) {
+            driveClientMoveNodes = request
+        }
+
     suspend fun enumerateThumbnails(
         coroutineScope: CoroutineScope,
         request: ProtonDriveSdk.DriveClientEnumerateThumbnailsRequest,

@@ -44,6 +44,7 @@ message Request {
         DriveClientGetNodeRequest drive_client_get_node = 1016;
         DriveClientLeaveSharedNodeRequest drive_client_leave_shared_node = 1017;
         DriveClientEnumerateSharedWithMeNodeUidsRequest drive_client_enumerate_shared_with_me_node_uids = 1018;
+        DriveClientMoveNodesRequest drive_client_move_nodes = 1019;
 
         UploadFromStreamRequest upload_from_stream = 1100;
         UploadFromFileRequest upload_from_file = 1101;
@@ -555,6 +556,14 @@ message DriveClientTrashNodesRequest {
     int64 client_handle = 1;
     repeated string node_uids = 2;
     int64 cancellation_token_source_handle = 3;
+}
+
+// The response message must be of type NodeResultListResponse
+message DriveClientMoveNodesRequest {
+    int64 client_handle = 1;
+    repeated string node_uids = 2;
+    string new_parent_folder_uid = 3;
+    int64 cancellation_token_source_handle = 4;
 }
 
 message NodeResultPair {

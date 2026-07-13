@@ -86,6 +86,11 @@ extension Message {
                 $0.payload = .driveClientTrashNodes(request)
             }
 
+        case let request as Proton_Drive_Sdk_DriveClientMoveNodesRequest:
+            Proton_Drive_Sdk_Request.with {
+                $0.payload = .driveClientMoveNodes(request)
+            }
+
         case let request as Proton_Drive_Sdk_DriveClientDeleteNodesRequest:
             Proton_Drive_Sdk_Request.with {
                 $0.payload = .driveClientDeleteNodes(request)
