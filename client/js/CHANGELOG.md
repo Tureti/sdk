@@ -1,5 +1,16 @@
 # Changelog
 
+## js/v0.19.2 (2026-07-13)
+
+### Features
+- Allow upload with no expectedSize
+- Expose IsImported on file active revision and folder node api
+- Support reporting abuse for invitations
+
+### Bug Fixes
+- Return the updated cover photo from updateAlbum
+
+
 ## js/v0.19.1 (2026-06-30)
 
 ### Bug Fixes
