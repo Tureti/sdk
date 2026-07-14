@@ -4,10 +4,10 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Proton.Cryptography.Pgp;
-using Proton.Drive.Sdk.Api;
 using Proton.Drive.Sdk.Api.Files;
 using Proton.Drive.Sdk.Cryptography;
 using Proton.Drive.Sdk.Http;
+using Proton.Drive.Sdk.Nodes.Upload.Verification;
 using Proton.Drive.Sdk.Serialization;
 using Proton.Sdk.Api;
 
@@ -38,7 +38,7 @@ internal sealed partial class RevisionWriter
         _logger = client.Telemetry.GetLogger("Revision writer");
     }
 
-    public async ValueTask WriteAsync(
+    public async ValueTask<UploadResult> WriteAsync(
         Stream contentStream,
         Lazy<ReadOnlyMemory<byte>>? expectedSha1,
         IEnumerable<Thumbnail> thumbnails,
@@ -59,7 +59,7 @@ internal sealed partial class RevisionWriter
             if (metadata is PhotosFileUploadMetadata photoMetadata)
             {
                 var hashKey = _draft.ParentHashKey
-                    ?? await NodeOperations.GetParentFolderHashKeyAsync(_client, _draft.Uid.NodeUid, cancellationToken).ConfigureAwait(false);
+                    ?? await NodeOperations.GetParentFolderHashKeyAsync(_client, _draft.RequireUid().NodeUid, cancellationToken).ConfigureAwait(false);
 
                 request = CreatePhotosRevisionUpdateRequest(
                     photoMetadata,
@@ -81,28 +81,11 @@ internal sealed partial class RevisionWriter
 
             LogSealingRevision(_draft.Uid);
 
-            try
-            {
-                await _client.Api.Files.UpdateRevisionAsync(
-                    _draft.Uid.NodeUid.VolumeId,
-                    _draft.Uid.NodeUid.LinkId,
-                    _draft.Uid.RevisionId,
-                    request,
-                    cancellationToken).ConfigureAwait(false);
-            }
-            catch (ProtonApiException ex) when (ex.Code is DriveApiResponseCodes.IncompatibleState)
-            {
-                // The revision might have been previously sealed without getting the response back due to a cancellation.
-                // Throw only if the revision is still not sealed.
-                if (!await RevisionIsSealedAsync(cancellationToken).ConfigureAwait(false))
-                {
-                    throw;
-                }
-            }
+            var result = await _draft.CommitAsync(request, sha1Digest, cancellationToken).ConfigureAwait(false);
 
             LogRevisionSealed(_draft.Uid);
 
-            _draft.IsCompleted = true;
+            return result;
         }
         catch (Exception ex) when (!IsResumableError(ex))
         {
@@ -308,14 +291,14 @@ internal sealed partial class RevisionWriter
     {
         try
         {
-            var result = await _client.BlockUploader.UploadContentAsync(_draft, blockNumber, plainData, onBlockProgress, cancellationToken)
+            var result = await _draft.UploadContentBlockAsync(blockNumber, plainData, onBlockProgress, cancellationToken)
                 .ConfigureAwait(false);
 
             _draft.SetContentBlockUploadResult(blockNumber, result);
 
             await plainData.DisposeAsync().ConfigureAwait(false);
 
-            _client.UploadQueue.DecreaseFileRemainingBlockCount(_queueToken, 1);
+            ReleaseTransferredBlocks(1);
 
             return result;
         }
@@ -341,9 +324,9 @@ internal sealed partial class RevisionWriter
                 continue;
             }
 
-            _client.UploadQueue.IncreaseFileBlockCount(_queueToken, 1);
+            ReserveAdditionalBlocks(1);
 
-            await WaitForBlockUploaderAsync(uploadTasks, cancellationToken).ConfigureAwait(false);
+            await WaitForUploadSlotAsync(uploadTasks, cancellationToken).ConfigureAwait(false);
 
             var uploadTask = UploadThumbnailBlockAsync(thumbnail, cancellationToken).AsTask();
 
@@ -357,11 +340,11 @@ internal sealed partial class RevisionWriter
     {
         try
         {
-            var result = await _client.BlockUploader.UploadThumbnailAsync(_draft, thumbnail, cancellationToken).ConfigureAwait(false);
+            var result = await _draft.UploadThumbnailBlockAsync(thumbnail, cancellationToken).ConfigureAwait(false);
 
             _draft.SetThumbnailUploadResult(thumbnail.Type, result);
 
-            _client.UploadQueue.DecreaseFileRemainingBlockCount(_queueToken, 1);
+            ReleaseTransferredBlocks(1);
 
             return result;
         }
@@ -393,17 +376,17 @@ internal sealed partial class RevisionWriter
                 await TryGetNextContentBlockPlainDataAsync(
                     currentBlockNumber,
                     hashingContentStream,
-                    _draft.BlockVerifier.DataPacketPrefixMaxLength,
+                    BlockVerifierBase.MaxPlainDataVerificationLength,
                     delayedCancellationTokenSource.Token).ConfigureAwait(false) is var (newBlockNumber, plainData))
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
                 currentBlockNumber = newBlockNumber;
 
-                _client.UploadQueue.ApplyFileMinimumTotalBlockCount(_queueToken, currentBlockNumber.Value + expectedThumbnailBlockCount);
+                EnsureReservedBlockCount(currentBlockNumber.Value + expectedThumbnailBlockCount);
 
                 // ReSharper disable once PossiblyMistakenUseOfCancellationToken
-                await WaitForBlockUploaderAsync(uploadTasks, cancellationToken).ConfigureAwait(false);
+                await WaitForUploadSlotAsync(uploadTasks, cancellationToken).ConfigureAwait(false);
 
                 var onBlockProgress = onProgress is not null
                     ? progress =>
@@ -478,7 +461,7 @@ internal sealed partial class RevisionWriter
         }
     }
 
-    private async ValueTask WaitForBlockUploaderAsync(Queue<Task<BlockUploadResult>> uploadTasks, CancellationToken cancellationToken)
+    private async ValueTask WaitForUploadSlotAsync(Queue<Task<BlockUploadResult>> uploadTasks, CancellationToken cancellationToken)
     {
         if (!_client.UploadQueue.TryEnqueueBlock())
         {
@@ -491,23 +474,33 @@ internal sealed partial class RevisionWriter
         }
     }
 
-    private async ValueTask<bool> RevisionIsSealedAsync(CancellationToken cancellationToken)
+    private void ReserveAdditionalBlocks(int count)
     {
-        var revisionResponse = await _client.Api.Files.GetRevisionAsync(
-            _draft.Uid.NodeUid.VolumeId,
-            _draft.Uid.NodeUid.LinkId,
-            _draft.Uid.RevisionId,
-            fromBlockIndex: null,
-            pageSize: null,
-            false,
-            cancellationToken).ConfigureAwait(false);
+        if (!_draft.IsSmallUpload)
+        {
+            _client.UploadQueue.IncreaseFileBlockCount(_queueToken, count);
+        }
+    }
 
-        return revisionResponse.Revision.State is ApiRevisionState.Active or ApiRevisionState.Obsolete;
+    private void EnsureReservedBlockCount(int minimumTotal)
+    {
+        if (!_draft.IsSmallUpload)
+        {
+            _client.UploadQueue.ApplyFileMinimumTotalBlockCount(_queueToken, minimumTotal);
+        }
+    }
+
+    private void ReleaseTransferredBlocks(int count)
+    {
+        if (!_draft.IsSmallUpload)
+        {
+            _client.UploadQueue.DecreaseFileRemainingBlockCount(_queueToken, count);
+        }
     }
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Sealing revision \"{RevisionUid}\"")]
-    private partial void LogSealingRevision(RevisionUid revisionUid);
+    private partial void LogSealingRevision(RevisionUid? revisionUid);
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Revision \"{RevisionUid}\" sealed")]
-    private partial void LogRevisionSealed(RevisionUid revisionUid);
+    private partial void LogRevisionSealed(RevisionUid? revisionUid);
 }

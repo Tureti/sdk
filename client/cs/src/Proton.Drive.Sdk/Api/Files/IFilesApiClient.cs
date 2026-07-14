@@ -35,4 +35,19 @@ internal interface IFilesApiClient
     ValueTask<ThumbnailBlockListResponse> GetThumbnailBlocksAsync(VolumeId volumeId, IEnumerable<string> thumbnailIds, CancellationToken cancellationToken);
 
     ValueTask<ApiResponse> DeleteRevisionAsync(VolumeId volumeId, LinkId linkId, RevisionId revisionId, CancellationToken cancellationToken);
+
+    ValueTask<SmallUploadResponse> UploadSmallFileAsync(
+        VolumeId volumeId,
+        SmallFileUploadMetadataRequest metadata,
+        byte[]? contentBlock,
+        IReadOnlyList<EncryptedThumbnail>? thumbnailBlocks,
+        CancellationToken cancellationToken);
+
+    ValueTask<SmallUploadResponse> UploadSmallRevisionAsync(
+        VolumeId volumeId,
+        LinkId linkId,
+        SmallRevisionUploadMetadataRequest metadata,
+        byte[]? contentBlock,
+        IReadOnlyList<EncryptedThumbnail>? thumbnailBlocks,
+        CancellationToken cancellationToken);
 }

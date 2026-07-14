@@ -10,6 +10,7 @@ public sealed class UploadController : IAsyncDisposable
     private readonly Stream? _sourceStreamToDispose;
     private readonly Func<Exception, long, ValueTask>? _onFailedAsync;
     private readonly Func<long, ValueTask>? _onSucceededAsync;
+    private readonly long? _contentByteCount;
 
     private bool _isDisposed;
 
@@ -20,7 +21,8 @@ public sealed class UploadController : IAsyncDisposable
         Stream? sourceStreamToDispose,
         ITaskControl taskControl,
         Func<Exception, long, ValueTask>? onFailedAsync = null,
-        Func<long, ValueTask>? onSucceededAsync = null)
+        Func<long, ValueTask>? onSucceededAsync = null,
+        long? contentByteCount = null)
     {
         _revisionDraftTask = revisionDraftTask;
         _resumeFunction = resumeFunction;
@@ -28,6 +30,7 @@ public sealed class UploadController : IAsyncDisposable
         _sourceStreamToDispose = sourceStreamToDispose;
         _onFailedAsync = onFailedAsync;
         _onSucceededAsync = onSucceededAsync;
+        _contentByteCount = contentByteCount;
 
         Completion = PauseOnResumableErrorAsync(uploadTask, taskControl.Attempt);
     }
@@ -156,9 +159,18 @@ public sealed class UploadController : IAsyncDisposable
             return;
         }
 
-        var revisionDraft = await _revisionDraftTask.ConfigureAwait(false);
+        if (_revisionDraftTask.IsCompletedSuccessfully)
+        {
+            var revisionDraft = await _revisionDraftTask.ConfigureAwait(false);
 
-        await onSucceededHandler.Invoke(revisionDraft.NumberOfPlainBytesDone).ConfigureAwait(false);
+            await onSucceededHandler.Invoke(revisionDraft.NumberOfPlainBytesDone).ConfigureAwait(false);
+            return;
+        }
+
+        if (_contentByteCount is { } uploadedByteCount)
+        {
+            await onSucceededHandler.Invoke(uploadedByteCount).ConfigureAwait(false);
+        }
     }
 
     private bool IsResumable()

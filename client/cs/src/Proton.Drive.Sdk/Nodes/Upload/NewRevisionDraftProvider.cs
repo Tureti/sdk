@@ -22,7 +22,12 @@ internal sealed class NewRevisionDraftProvider : IRevisionDraftProvider
         _lastKnownRevisionId = lastKnownRevisionId;
     }
 
-    public async ValueTask<RevisionDraft> GetDraftAsync(long intendedUploadSize, CancellationToken cancellationToken)
+    public async ValueTask<RevisionDraft> GetDraftAsync(
+        long intendedUploadSize,
+        IReadOnlyList<Thumbnail> thumbnails,
+        bool contentCanSeek,
+        bool allowSmallUpload,
+        CancellationToken cancellationToken)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(intendedUploadSize);
 
@@ -41,6 +46,43 @@ internal sealed class NewRevisionDraftProvider : IRevisionDraftProvider
             throw new InvalidOperationException($"Cannot create draft for file {_fileUid} with missing secrets");
         }
 
+        var membershipAddress = await NodeOperations.GetMembershipAddressAsync(_client, _fileUid, cancellationToken).ConfigureAwait(false);
+
+        var signingKey = await _client.Account.GetAddressPrimaryPrivateKeyAsync(membershipAddress.Id, cancellationToken).ConfigureAwait(false);
+
+        var uploadBackendRequest = new NewRevisionUploadBackendRequest(
+            intendedUploadSize,
+            thumbnails,
+            contentCanSeek,
+            _fileUid,
+            _lastKnownRevisionId,
+            parameters,
+            operationData,
+            nodeKey,
+            contentKey,
+            signingKey,
+            membershipAddress,
+            CreateRevisionAsync,
+            DeleteDraftAsync);
+
+        var uploadBackend = await _client.RevisionUploadBackendFactory.GetBackendForAsync(
+            uploadBackendRequest,
+            allowSmallUpload,
+            cancellationToken).ConfigureAwait(false);
+
+        return new RevisionDraft(
+            nodeKey,
+            contentKey,
+            signingKey,
+            parentHashKey: null,
+            membershipAddress,
+            uploadBackend,
+            intendedUploadSize,
+            _client.Telemetry.GetLogger("New revision draft"));
+    }
+
+    private async ValueTask<RevisionUid> CreateRevisionAsync(RevisionCreationRequest parameters, CancellationToken cancellationToken)
+    {
         var remainingNumberOfAttempts = MaxNumberOfDraftCreationAttempts;
         RevisionId? revisionId = null;
 
@@ -66,25 +108,7 @@ internal sealed class NewRevisionDraftProvider : IRevisionDraftProvider
             }
         }
 
-        var draftRevisionUid = new RevisionUid(_fileUid, revisionId.Value);
-
-        var membershipAddress = await NodeOperations.GetMembershipAddressAsync(_client, _fileUid, cancellationToken).ConfigureAwait(false);
-
-        var signingKey = await _client.Account.GetAddressPrimaryPrivateKeyAsync(membershipAddress.Id, cancellationToken).ConfigureAwait(false);
-
-        var blockVerifier = await _client.BlockVerifierFactory.CreateAsync(draftRevisionUid, nodeKey, cancellationToken).ConfigureAwait(false);
-
-        return new RevisionDraft(
-            draftRevisionUid,
-            nodeKey,
-            contentKey,
-            signingKey,
-            parentHashKey: null,
-            membershipAddress,
-            blockVerifier,
-            intendedUploadSize,
-            ct => DeleteDraftAsync(draftRevisionUid, ct),
-            _client.Telemetry.GetLogger("New file draft"));
+        return new RevisionUid(_fileUid, revisionId.Value);
     }
 
     private async ValueTask DeleteDraftAsync(RevisionUid revisionUid, CancellationToken cancellationToken)

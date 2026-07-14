@@ -1,4 +1,8 @@
+using System.Net.Http.Headers;
+using System.Net.Mime;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using Proton.Drive.Sdk.Api.Links;
 using Proton.Drive.Sdk.Serialization;
 using Proton.Drive.Sdk.Volumes;
@@ -109,5 +113,103 @@ internal sealed class FilesApiClient(HttpClient httpClient) : IFilesApiClient
                 DriveApiSerializerContext.Default.ThumbnailBlockListRequest,
                 cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    public async ValueTask<SmallUploadResponse> UploadSmallFileAsync(
+        VolumeId volumeId,
+        SmallFileUploadMetadataRequest metadata,
+        byte[]? contentBlock,
+        IReadOnlyList<EncryptedThumbnail>? thumbnailBlocks,
+        CancellationToken cancellationToken)
+    {
+        return await SendSmallUploadAsync(
+            $"v2/volumes/{volumeId}/files/small",
+            metadata,
+            DriveApiSerializerContext.Default.SmallFileUploadMetadataRequest,
+            contentBlock,
+            thumbnailBlocks,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    public async ValueTask<SmallUploadResponse> UploadSmallRevisionAsync(
+        VolumeId volumeId,
+        LinkId linkId,
+        SmallRevisionUploadMetadataRequest metadata,
+        byte[]? contentBlock,
+        IReadOnlyList<EncryptedThumbnail>? thumbnailBlocks,
+        CancellationToken cancellationToken)
+    {
+        return await SendSmallUploadAsync(
+            $"v2/volumes/{volumeId}/files/{linkId}/revisions/small",
+            metadata,
+            DriveApiSerializerContext.Default.SmallRevisionUploadMetadataRequest,
+            contentBlock,
+            thumbnailBlocks,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private static MultipartFormDataContent BuildSmallUploadContent<TMetadata>(
+        TMetadata metadata,
+        JsonTypeInfo<TMetadata> metadataTypeInfo,
+        byte[]? contentBlock,
+        IReadOnlyList<EncryptedThumbnail>? thumbnailBlocks)
+    {
+        var multipartContent = new MultipartFormDataContent();
+
+        try
+        {
+            var metadataJson = JsonSerializer.Serialize(metadata, metadataTypeInfo);
+            var metadataContent = new StringContent(metadataJson);
+            metadataContent.Headers.ContentDisposition = new ContentDispositionHeaderValue("form-data") { Name = "Metadata", FileName = "Metadata" };
+            metadataContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
+            multipartContent.Add(metadataContent);
+
+            if (contentBlock is not null)
+            {
+                var blockContent = new ByteArrayContent(contentBlock);
+                blockContent.Headers.ContentDisposition = new ContentDispositionHeaderValue("form-data") { Name = "ContentBlock", FileName = "ContentBlock" };
+                blockContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Octet);
+                multipartContent.Add(blockContent);
+            }
+
+            if (thumbnailBlocks is not null)
+            {
+                foreach (var (type, data) in thumbnailBlocks)
+                {
+                    var thumbnailContent = new ByteArrayContent(data);
+                    thumbnailContent.Headers.ContentDisposition = new ContentDispositionHeaderValue("form-data")
+                    {
+                        Name = $"ThumbnailBlockType_{type}",
+                        FileName = $"ThumbnailBlockType_{type}",
+                    };
+                    thumbnailContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Octet);
+                    multipartContent.Add(thumbnailContent);
+                }
+            }
+
+            return multipartContent;
+        }
+        catch
+        {
+            multipartContent.Dispose();
+            throw;
+        }
+    }
+
+    private async ValueTask<SmallUploadResponse> SendSmallUploadAsync<TMetadata>(
+        string url,
+        TMetadata metadata,
+        JsonTypeInfo<TMetadata> metadataTypeInfo,
+        byte[]? contentBlock,
+        IReadOnlyList<EncryptedThumbnail>? thumbnailBlocks,
+        CancellationToken cancellationToken)
+    {
+        using var multipartContent = BuildSmallUploadContent(metadata, metadataTypeInfo, contentBlock, thumbnailBlocks);
+        using var requestMessage = HttpRequestMessageFactory.Create(HttpMethod.Post, url, multipartContent);
+        requestMessage.SetRequestType(HttpRequestType.StorageUpload);
+
+        return await _httpClient
+            .Expecting(DriveApiSerializerContext.Default.SmallUploadResponse, DriveApiSerializerContext.Default.RevisionErrorResponse)
+            .SendAsync(requestMessage, cancellationToken).ConfigureAwait(false);
     }
 }

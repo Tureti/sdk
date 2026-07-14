@@ -4,46 +4,51 @@ using System.Security.Cryptography;
 using Microsoft.Extensions.Logging;
 using Proton.Cryptography.Pgp;
 using Proton.Drive.Sdk.Account.Addresses;
+using Proton.Drive.Sdk.Api.Files;
 using Proton.Drive.Sdk.Nodes.Upload.Verification;
 
 namespace Proton.Drive.Sdk.Nodes.Upload;
 
 internal sealed partial class RevisionDraft(
-    RevisionUid uid,
     PgpPrivateKey fileKey,
     PgpSessionKey contentKey,
     PgpPrivateKey signingKey,
     ReadOnlyMemory<byte>? parentHashKey,
     Address membershipAddress,
-    IBlockVerifier blockVerifier,
+    IRevisionUploadBackend uploadBackend,
     long intendedUploadSize,
-    Func<CancellationToken, ValueTask> deleteDraftFunction,
     ILogger logger) : IAsyncDisposable
 {
     private readonly SortedDictionary<ThumbnailType, BlockUploadResult> _thumbnailUploadResults = [];
     private readonly List<Either<BlockUploadPlainData, BlockUploadResult>> _contentBlockStates = [];
 
     private readonly Lock _blockUploadStatesLock = new();
+    private readonly IRevisionUploadBackend _uploadBackend = uploadBackend;
     private readonly ILogger _logger = logger;
 
-    public RevisionUid Uid { get; } = uid;
+    public RevisionUid? Uid => _uploadBackend.RevisionUid;
+    public bool IsSmallUpload => _uploadBackend.IsSmallUpload;
     public PgpPrivateKey FileKey { get; } = fileKey;
     public PgpSessionKey ContentKey { get; } = contentKey;
     public PgpPrivateKey SigningKey { get; } = signingKey;
     public ReadOnlyMemory<byte>? ParentHashKey { get; } = parentHashKey;
     public Address MembershipAddress { get; } = membershipAddress;
-    public IBlockVerifier BlockVerifier { get; } = blockVerifier;
+    public IBlockVerifier BlockVerifier => _uploadBackend.BlockVerifier;
 
     public IncrementalHash Sha1 { get; } = IncrementalHash.CreateHash(HashAlgorithmName.SHA1);
 
     public IReadOnlyCollection<BlockUploadResult> OrderedThumbnailUploadResults => _thumbnailUploadResults.Values;
     public IReadOnlyList<Either<BlockUploadPlainData, BlockUploadResult>> OrderedContentBlockStates => _contentBlockStates;
 
-    public bool IsCompleted { get; set; }
     public bool IsResumable { get; set; } = true;
     public long NumberOfPlainBytesDone { get; set; }
 
     public long IntendedUploadSize { get; } = intendedUploadSize;
+
+    public RevisionUid RequireUid()
+    {
+        return Uid ?? throw new InvalidOperationException("Revision UID is not available before upload commit");
+    }
 
     public void SetContentBlockPlainData(int blockNumber, BlockUploadPlainData plainData)
     {
@@ -115,6 +120,28 @@ internal sealed partial class RevisionDraft(
         }
     }
 
+    public ValueTask<BlockUploadResult> UploadContentBlockAsync(
+        int blockNumber,
+        BlockUploadPlainData plainData,
+        Action<long>? onBlockProgress,
+        CancellationToken cancellationToken)
+    {
+        return _uploadBackend.UploadContentBlockAsync(blockNumber, plainData, onBlockProgress, cancellationToken);
+    }
+
+    public ValueTask<BlockUploadResult> UploadThumbnailBlockAsync(Thumbnail thumbnail, CancellationToken cancellationToken)
+    {
+        return _uploadBackend.UploadThumbnailBlockAsync(thumbnail, cancellationToken);
+    }
+
+    public ValueTask<UploadResult> CommitAsync(
+        RevisionUpdateRequest request,
+        ReadOnlyMemory<byte> sha1Digest,
+        CancellationToken cancellationToken)
+    {
+        return _uploadBackend.CommitAsync(request, sha1Digest, cancellationToken);
+    }
+
     public async ValueTask DisposeAsync()
     {
         Sha1.Dispose();
@@ -130,19 +157,16 @@ internal sealed partial class RevisionDraft(
             return data.Stream.DisposeAsync();
         }).ConfigureAwait(false);
 
-        if (!IsCompleted)
+        try
         {
-            try
-            {
-                await deleteDraftFunction.Invoke(CancellationToken.None).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                LogDraftDeletionFailure(ex, Uid);
-            }
+            await _uploadBackend.DeleteDraftIfNeededAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            LogDraftDeletionFailure(ex, Uid);
         }
     }
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Draft deletion failed for revision {RevisionUid}")]
-    private partial void LogDraftDeletionFailure(Exception exception, RevisionUid revisionUid);
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Draft cleanup failed for revision {RevisionUid}")]
+    private partial void LogDraftDeletionFailure(Exception exception, RevisionUid? revisionUid);
 }

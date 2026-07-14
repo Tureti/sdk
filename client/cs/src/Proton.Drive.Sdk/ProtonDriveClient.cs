@@ -66,9 +66,10 @@ public sealed class ProtonDriveClient
         UploadQueue = new TransferQueue(maxDegreeOfBlockTransferParallelism, telemetry.GetLogger("Upload queue"));
         ThumbnailDownloadQueue = new TransferQueue(MaxDegreeOfThumbnailDownloadParallelism, telemetry.GetLogger("Thumbnail download queue"));
 
-        BlockUploader = new BlockUploader(this);
         BlockDownloader = new BlockDownloader(this);
         ThumbnailBlockDownloader = new BlockDownloader(this);
+        RevisionUploadBackendFactory = new RevisionUploadBackendFactory(this);
+
         PgpConfiguration.DefaultAeadStreamingChunkLength = PgpDefaults.AeadStreamingChunkLength;
     }
 
@@ -106,9 +107,9 @@ public sealed class ProtonDriveClient
 
     internal int TargetBlockSize { get; set; } = RevisionWriter.DefaultBlockSize;
 
-    internal BlockUploader BlockUploader { get; }
     internal BlockDownloader BlockDownloader { get; }
     internal BlockDownloader ThumbnailBlockDownloader { get; }
+    internal RevisionUploadBackendFactory RevisionUploadBackendFactory { get; }
 
     internal Func<string, IEnumerable<string>> GetAlternateFileNames { get; } = AlternateFileNameGenerator.GetNames;
 

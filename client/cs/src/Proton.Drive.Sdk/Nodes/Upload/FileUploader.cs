@@ -1,10 +1,12 @@
+using System.Net;
 using Microsoft.Extensions.Logging;
 using Proton.Drive.Sdk.Telemetry;
 using Proton.Drive.Sdk.Threading;
+using Proton.Sdk.Api;
 
 namespace Proton.Drive.Sdk.Nodes.Upload;
 
-public sealed class FileUploader : IDisposable
+public sealed partial class FileUploader : IDisposable
 {
     private readonly ProtonDriveClient _client;
     private readonly long _queueToken;
@@ -118,6 +120,8 @@ public sealed class FileUploader : IDisposable
         FileUploadMetadata metadata,
         CancellationToken cancellationToken)
     {
+        var logger = client.Telemetry.GetLogger("File uploader");
+
         var expectedNumberOfBlocks = (int)size.DivideAndRoundUp(client.TargetBlockSize);
 
         var queueToken = await client.UploadQueue.EnqueueFileAsync(expectedNumberOfBlocks, cancellationToken).ConfigureAwait(false);
@@ -129,8 +133,41 @@ public sealed class FileUploader : IDisposable
             telemetryContextNodeUid,
             size,
             metadata,
-            client.Telemetry.GetLogger("File uploader"));
+            logger);
     }
+
+    // Only fall back when no server write could have happened: SmallUploadNotApplicableException is raised before the upload
+    // POST, a 429 is rejected before processing, and an AlreadyExists conflict is a clean rejection (the server committed
+    // nothing). Ambiguous post-POST failures (5xx / 424 / dropped connections) are NOT retried, because the small upload
+    // creates and commits the revision atomically and is not idempotent — re-running it could duplicate state or report
+    // failure after the server already succeeded.
+    //
+    // The conflict cases fall back so the regular path can recover: its draft creation deletes a stale own-draft left by a
+    // prior interrupted upload and retries, or re-surfaces NodeWithSameNameExistsException for a genuine name collision. The
+    // small-upload endpoint creates no draft, so it cannot perform that cleanup itself.
+    private static bool IsSmallUploadFallbackException(Exception ex) =>
+        ex switch
+        {
+            SmallUploadNotApplicableException => true,
+            TooManyRequestsException => true,
+            NodeWithSameNameExistsException => true,
+            RevisionDraftConflictException => true,
+            _ => false,
+        };
+
+    private static int? GetTransportStatusCode(Exception ex) =>
+        ex switch
+        {
+            HttpRequestException http => (int?)http.StatusCode,
+            TooManyRequestsException => (int)HttpStatusCode.TooManyRequests,
+            ProtonApiException api => api.TransportCode,
+            _ => null,
+        };
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Small file upload failed transiently (status: {StatusCode}); falling back to regular upload (~{ApproximateSize} bytes)")]
+    private static partial void LogSmallUploadFallback(ILogger logger, int? statusCode, long approximateSize);
 
     private UploadController UploadFromStream(
         Stream contentStream,
@@ -156,12 +193,13 @@ public sealed class FileUploader : IDisposable
 
         return new UploadController(
             revisionDraftTaskCompletionSource.Task,
-            uploadFunction.Invoke(taskControl.PauseOrCancellationToken),
+            uploadFunction(taskControl.PauseOrCancellationToken),
             uploadFunction,
             ownsContentStream ? contentStream : null,
             taskControl,
             OnFailedAsync,
-            OnSucceededAsync);
+            OnSucceededAsync,
+            FileSize);
 
         async ValueTask OnFailedAsync(Exception ex, long uploadedByteCount)
         {
@@ -196,25 +234,90 @@ public sealed class FileUploader : IDisposable
         TaskCompletionSource<RevisionDraft> revisionDraftTaskCompletionSource,
         CancellationToken cancellationToken)
     {
+        var thumbnailList = thumbnails as IReadOnlyList<Thumbnail> ?? thumbnails.ToList();
+
         var revisionDraft = revisionDraftTaskCompletionSource.Task.GetResultIfCompletedSuccessfully();
-        if (revisionDraft is null)
+        if (revisionDraft is not null)
         {
-            revisionDraft = await _revisionDraftProvider.GetDraftAsync(FileSize, cancellationToken).ConfigureAwait(false);
-            revisionDraftTaskCompletionSource.SetResult(revisionDraft);
+            return await CompleteUploadAsync(revisionDraft, contentStream, thumbnailList, onProgress, expectedSha1, cancellationToken)
+                .ConfigureAwait(false);
         }
 
-        await UploadAsync(
+        revisionDraft = await _revisionDraftProvider.GetDraftAsync(
+            FileSize,
+            thumbnailList,
+            contentStream.CanSeek,
+            allowSmallUpload: _metadata is not PhotosFileUploadMetadata,
+            cancellationToken).ConfigureAwait(false);
+
+        if (revisionDraft.IsSmallUpload)
+        {
+            var smallDraft = revisionDraft;
+
+            // Until it commits, the small draft is not published to the completion source, so UploadController cannot
+            // own its disposal. Dispose it here unless ownership is handed off to the controller on success.
+            var handedOffToController = false;
+            try
+            {
+                var smallUploadResult = await CompleteUploadAsync(
+                    smallDraft,
+                    contentStream,
+                    thumbnailList,
+                    onProgress,
+                    expectedSha1,
+                    cancellationToken).ConfigureAwait(false);
+
+                revisionDraftTaskCompletionSource.SetResult(smallDraft);
+                handedOffToController = true;
+
+                return smallUploadResult;
+            }
+            catch (Exception ex) when (IsSmallUploadFallbackException(ex))
+            {
+                LogSmallUploadFallback(_logger, GetTransportStatusCode(ex), Privacy.ReduceSizePrecision(FileSize));
+
+                contentStream.Seek(0, SeekOrigin.Begin);
+
+                revisionDraft = await _revisionDraftProvider.GetDraftAsync(
+                    FileSize,
+                    thumbnailList,
+                    contentStream.CanSeek,
+                    allowSmallUpload: false,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                if (!handedOffToController)
+                {
+                    await smallDraft.DisposeAsync().ConfigureAwait(false);
+                }
+            }
+        }
+
+        revisionDraftTaskCompletionSource.SetResult(revisionDraft);
+
+        return await CompleteUploadAsync(revisionDraft, contentStream, thumbnailList, onProgress, expectedSha1, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<UploadResult> CompleteUploadAsync(
+        RevisionDraft revisionDraft,
+        Stream contentStream,
+        IReadOnlyList<Thumbnail> thumbnailList,
+        Action<long>? onProgress,
+        Lazy<ReadOnlyMemory<byte>>? expectedSha1,
+        CancellationToken cancellationToken)
+    {
+        return await UploadAsync(
             revisionDraft,
             contentStream,
-            thumbnails,
+            thumbnailList,
             onProgress,
             expectedSha1,
             cancellationToken).ConfigureAwait(false);
-
-        return new UploadResult(revisionDraft.Uid.NodeUid, revisionDraft.Uid);
     }
 
-    private async ValueTask UploadAsync(
+    private async ValueTask<UploadResult> UploadAsync(
         RevisionDraft revisionDraft,
         Stream contentStream,
         IEnumerable<Thumbnail> thumbnails,
@@ -224,7 +327,7 @@ public sealed class FileUploader : IDisposable
     {
         var revisionWriter = RevisionOperations.OpenForWriting(_client, revisionDraft, _queueToken);
 
-        await revisionWriter.WriteAsync(
+        return await revisionWriter.WriteAsync(
             contentStream,
             expectedSha1,
             thumbnails,
