@@ -13,7 +13,7 @@ internal sealed class AccountEntityCache(ICacheRepository repository) : IAccount
 
     public ValueTask SetAddressAsync(Address address, CancellationToken cancellationToken)
     {
-        var value = JsonSerializer.Serialize(address, AccountEntitiesSerializerContext.Default.Address);
+        var value = JsonSerializer.SerializeToUtf8Bytes(address, AccountEntitiesSerializerContext.Default.Address);
 
         return _repository.SetAsync(GetAddressCacheKey(address.Id), value, cancellationToken);
     }
@@ -27,12 +27,12 @@ internal sealed class AccountEntityCache(ICacheRepository repository) : IAccount
 
     public ValueTask SetCurrentUserDefaultAddressIdAsync(AddressId addressId, CancellationToken cancellationToken)
     {
-        return _repository.SetAsync(CurrentUserDefaultAddressIdCacheKey, addressId.ToString(), cancellationToken);
+        return _repository.SetUtf8StringAsync(CurrentUserDefaultAddressIdCacheKey, addressId.ToString(), cancellationToken);
     }
 
     public async ValueTask<AddressId?> TryGetCurrentUserDefaultAddressIdAsync(CancellationToken cancellationToken)
     {
-        var value = await _repository.TryGetAsync(CurrentUserDefaultAddressIdCacheKey, cancellationToken).ConfigureAwait(false);
+        var value = await _repository.TryGetUtf8StringAsync(CurrentUserDefaultAddressIdCacheKey, cancellationToken).ConfigureAwait(false);
 
         return value is not null ? (AddressId)value : null;
     }

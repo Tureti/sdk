@@ -30,7 +30,7 @@ public sealed class SqliteCacheRepository : ICacheRepository, IDisposable
         return Open(connectionString, maxCacheSize);
     }
 
-    ValueTask ICacheRepository.SetAsync(string key, string value, CancellationToken cancellationToken)
+    ValueTask ICacheRepository.SetAsync(string key, ReadOnlyMemory<byte> value, CancellationToken cancellationToken)
     {
         try
         {
@@ -72,7 +72,7 @@ public sealed class SqliteCacheRepository : ICacheRepository, IDisposable
         }
     }
 
-    ValueTask<string?> ICacheRepository.TryGetAsync(string key, CancellationToken cancellationToken)
+    ValueTask<byte[]?> ICacheRepository.TryGetAsync(string key, CancellationToken cancellationToken)
     {
         try
         {
@@ -80,7 +80,7 @@ public sealed class SqliteCacheRepository : ICacheRepository, IDisposable
         }
         catch (Exception e)
         {
-            return ValueTask.FromException<string?>(e);
+            return ValueTask.FromException<byte[]?>(e);
         }
     }
 
@@ -91,7 +91,7 @@ public sealed class SqliteCacheRepository : ICacheRepository, IDisposable
         return ValueTask.CompletedTask;
     }
 
-    public void Set(string key, string value)
+    public void Set(string key, ReadOnlyMemory<byte> value)
     {
         using var connection = new SqliteConnection(_connection.ConnectionString);
         connection.Open();
@@ -134,7 +134,7 @@ public sealed class SqliteCacheRepository : ICacheRepository, IDisposable
             """;
 
         command.Parameters.AddWithValue("@key", key);
-        command.Parameters.AddWithValue("@value", value);
+        command.Parameters.AddWithValue("@value", value.ToArray());
         command.Parameters.AddWithValue("@timestamp", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
 
         command.ExecuteNonQuery();
@@ -167,7 +167,7 @@ public sealed class SqliteCacheRepository : ICacheRepository, IDisposable
         command.ExecuteNonQuery();
     }
 
-    public string? TryGet(string key)
+    public byte[]? TryGet(string key)
     {
         using var connection = new SqliteConnection(_connection.ConnectionString);
         connection.Open();
@@ -180,7 +180,7 @@ public sealed class SqliteCacheRepository : ICacheRepository, IDisposable
         command.CommandText = "SELECT Value FROM Entries WHERE Key = @key";
         command.Parameters.AddWithValue("@key", key);
 
-        string value;
+        byte[] value;
         using (var reader = command.ExecuteReader())
         {
             if (!reader.Read())
@@ -188,7 +188,7 @@ public sealed class SqliteCacheRepository : ICacheRepository, IDisposable
                 return null;
             }
 
-            value = reader.GetFieldValue<string>("Value");
+            value = reader.GetFieldValue<byte[]>("Value");
         }
 
         // Update timestamp
@@ -275,7 +275,7 @@ public sealed class SqliteCacheRepository : ICacheRepository, IDisposable
             """
             CREATE TABLE IF NOT EXISTS Entries (
                 Key TEXT NOT NULL,
-                Value TEXT NOT NULL,
+                Value BLOB NOT NULL,
                 LastAccessedUtc INTEGER NOT NULL DEFAULT 0,
                 PRIMARY KEY (Key)
             )

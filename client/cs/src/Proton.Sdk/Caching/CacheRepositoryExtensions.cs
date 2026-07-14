@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 
@@ -33,5 +34,17 @@ public static class CacheRepositoryExtensions
             await repository.RemoveAsync(key, cancellationToken).ConfigureAwait(false);
             return Option<T>.None;
         }
+    }
+
+    public static ValueTask SetUtf8StringAsync(this ICacheRepository repository, string key, string value, CancellationToken cancellationToken)
+    {
+        return repository.SetAsync(key, Encoding.UTF8.GetBytes(value), cancellationToken);
+    }
+
+    public static async ValueTask<string?> TryGetUtf8StringAsync(this ICacheRepository repository, string key, CancellationToken cancellationToken)
+    {
+        var value = await repository.TryGetAsync(key, cancellationToken).ConfigureAwait(false);
+
+        return value is not null ? Encoding.UTF8.GetString(value) : null;
     }
 }

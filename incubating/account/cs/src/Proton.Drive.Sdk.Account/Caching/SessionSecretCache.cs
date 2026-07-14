@@ -10,18 +10,14 @@ internal sealed class SessionSecretCache(ICacheRepository repository) : ISession
     {
         var cacheKey = GetAccountPassphraseCacheKey(keyId);
 
-        var serializedValue = Convert.ToBase64String(passphrase.Span);
-
-        return _repository.SetAsync(cacheKey, serializedValue, cancellationToken);
+        return _repository.SetAsync(cacheKey, passphrase, cancellationToken);
     }
 
     public async ValueTask<ReadOnlyMemory<byte>?> TryGetAccountKeyPassphraseAsync(string keyId, CancellationToken cancellationToken)
     {
         var cacheKey = GetAccountPassphraseCacheKey(keyId);
 
-        var serializedValue = await _repository.TryGetAsync(cacheKey, cancellationToken).ConfigureAwait(false);
-
-        return serializedValue is not null ? (ReadOnlyMemory<byte>?)Convert.FromBase64String(serializedValue) : null;
+        return await _repository.TryGetAsync(cacheKey, cancellationToken).ConfigureAwait(false);
     }
 
     private static string GetAccountPassphraseCacheKey(string keyId)

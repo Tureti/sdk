@@ -14,7 +14,7 @@ internal sealed class AccountSecretCache(ICacheRepository repository) : IAccount
 
     public ValueTask SetUserKeysAsync(IEnumerable<PgpPrivateKey> unlockedKeys, CancellationToken cancellationToken)
     {
-        var serializedValue = JsonSerializer.Serialize(unlockedKeys, SecretsSerializerContext.Default.IEnumerablePgpPrivateKey);
+        var serializedValue = JsonSerializer.SerializeToUtf8Bytes(unlockedKeys, SecretsSerializerContext.Default.IEnumerablePgpPrivateKey);
 
         return _repository.SetAsync(UserKeysCacheKey, serializedValue, cancellationToken);
     }
@@ -30,7 +30,7 @@ internal sealed class AccountSecretCache(ICacheRepository repository) : IAccount
 
     public ValueTask SetAddressKeysAsync(AddressId addressId, IEnumerable<PgpPrivateKey> unlockedKeys, CancellationToken cancellationToken)
     {
-        var serializedValue = JsonSerializer.Serialize(unlockedKeys, SecretsSerializerContext.Default.IEnumerablePgpPrivateKey);
+        var serializedValue = JsonSerializer.SerializeToUtf8Bytes(unlockedKeys, SecretsSerializerContext.Default.IEnumerablePgpPrivateKey);
 
         return _repository.SetAsync(GetAddressKeysCacheKey(addressId), serializedValue, cancellationToken);
     }

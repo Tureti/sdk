@@ -16,7 +16,7 @@ public sealed class EncryptedCacheRepository(ICacheRepository inner, byte[] encr
 
     private static byte[] CacheEncryptionContext => "Drive.EncryptedCacheRepository"u8.ToArray();
 
-    public ValueTask SetAsync(string key, string value, CancellationToken cancellationToken)
+    public ValueTask SetAsync(string key, ReadOnlyMemory<byte> value, CancellationToken cancellationToken)
     {
         var encryptedValue = Encrypt(key, value);
 
@@ -33,7 +33,7 @@ public sealed class EncryptedCacheRepository(ICacheRepository inner, byte[] encr
         return _inner.ClearAsync();
     }
 
-    public async ValueTask<string?> TryGetAsync(string key, CancellationToken cancellationToken)
+    public async ValueTask<byte[]?> TryGetAsync(string key, CancellationToken cancellationToken)
     {
         var encryptedValue = await _inner.TryGetAsync(key, cancellationToken).ConfigureAwait(false);
 
@@ -72,9 +72,8 @@ public sealed class EncryptedCacheRepository(ICacheRepository inner, byte[] encr
     }
 
     // TODO: use stack allocation when possible
-    private string Encrypt(string entryKey, string plaintext)
+    private byte[] Encrypt(string entryKey, ReadOnlyMemory<byte> plaintext)
     {
-        var plaintextBytes = Encoding.UTF8.GetBytes(plaintext);
         var salt = CryptoSecureNumberGenerator.GetBytes(SaltByteCount);
 
         Span<byte> derivedMaterial = HKDF.DeriveKey(
@@ -86,36 +85,34 @@ public sealed class EncryptedCacheRepository(ICacheRepository inner, byte[] encr
 
         var derivedKey = derivedMaterial[..KeyByteCount];
         var iv = derivedMaterial[KeyByteCount..];
-        Span<byte> ciphertext = stackalloc byte[plaintextBytes.Length];
+        Span<byte> ciphertext = stackalloc byte[plaintext.Length];
         Span<byte> tag = stackalloc byte[TagByteCount];
 
         using var aesGcm = new AesGcm(derivedKey, TagByteCount);
-        aesGcm.Encrypt(iv, plaintextBytes, ciphertext, tag);
+        aesGcm.Encrypt(iv, plaintext.Span, ciphertext, tag);
 
         // Format: [salt][ciphertext][tag]
-        var result = new byte[SaltByteCount + plaintextBytes.Length + TagByteCount];
+        var result = new byte[SaltByteCount + plaintext.Length + TagByteCount];
 
         salt.CopyTo(result.AsSpan());
         ciphertext.CopyTo(result.AsSpan(SaltByteCount));
-        tag.CopyTo(result.AsSpan(SaltByteCount + plaintextBytes.Length));
+        tag.CopyTo(result.AsSpan(SaltByteCount + plaintext.Length));
 
-        return Convert.ToBase64String(result);
+        return result;
     }
 
     // TODO: use stack allocation when possible
-    private string Decrypt(string entryKey, string encryptedBase64)
+    private byte[] Decrypt(string entryKey, byte[] encrypted)
     {
-        var combined = Convert.FromBase64String(encryptedBase64);
-
         // Validate minimum length: salt + tag
-        if (combined.Length < SaltByteCount + TagByteCount)
+        if (encrypted.Length < SaltByteCount + TagByteCount)
         {
             throw new InvalidOperationException("Invalid encrypted data format");
         }
 
-        var salt = combined[..SaltByteCount];
-        var ciphertext = combined[SaltByteCount..^TagByteCount];
-        var tag = combined[^TagByteCount..];
+        var salt = encrypted[..SaltByteCount];
+        var ciphertext = encrypted[SaltByteCount..^TagByteCount];
+        var tag = encrypted[^TagByteCount..];
 
         Span<byte> derivedMaterial = HKDF.DeriveKey(
             HashAlgorithmName.SHA256,
@@ -126,11 +123,11 @@ public sealed class EncryptedCacheRepository(ICacheRepository inner, byte[] encr
 
         var derivedKey = derivedMaterial[..KeyByteCount];
         var iv = derivedMaterial[KeyByteCount..];
-        Span<byte> plaintextBytes = stackalloc byte[ciphertext.Length];
+        var plaintextBytes = new byte[ciphertext.Length];
 
         using var aesGcm = new AesGcm(derivedKey, TagByteCount);
         aesGcm.Decrypt(iv, ciphertext, tag, plaintextBytes);
 
-        return Encoding.UTF8.GetString(plaintextBytes);
+        return plaintextBytes;
     }
 }

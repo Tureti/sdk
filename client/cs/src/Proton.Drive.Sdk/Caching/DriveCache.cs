@@ -193,7 +193,7 @@ internal sealed class DriveCache(ICacheRepository? repository = null) : IDriveCa
             return ValueTask.CompletedTask;
         }
 
-        var serializedValue = JsonSerializer.Serialize(value, typeInfo);
+        var serializedValue = JsonSerializer.SerializeToUtf8Bytes(value, typeInfo);
 
         return _repository.SetAsync(key, serializedValue, cancellationToken);
     }

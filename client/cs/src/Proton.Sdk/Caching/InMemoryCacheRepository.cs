@@ -5,17 +5,17 @@ namespace Proton.Sdk.Caching;
 
 public sealed class InMemoryCacheRepository : ICacheRepository, IDisposable
 {
-    private readonly ConcurrentDictionary<string, string> _entries = new();
+    private readonly ConcurrentDictionary<string, byte[]> _entries = new();
     private readonly ReaderWriterLockSlim _lock = new();
 
-    ValueTask ICacheRepository.SetAsync(string key, string value, CancellationToken cancellationToken)
+    ValueTask ICacheRepository.SetAsync(string key, ReadOnlyMemory<byte> value, CancellationToken cancellationToken)
     {
         Set(key, value);
 
         return ValueTask.CompletedTask;
     }
 
-    ValueTask<string?> ICacheRepository.TryGetAsync(string key, CancellationToken cancellationToken)
+    ValueTask<byte[]?> ICacheRepository.TryGetAsync(string key, CancellationToken cancellationToken)
     {
         return ValueTask.FromResult(TryGet(key, out var value) ? value : null);
     }
@@ -40,12 +40,12 @@ public sealed class InMemoryCacheRepository : ICacheRepository, IDisposable
         return ValueTask.CompletedTask;
     }
 
-    public void Set(string key, string value)
+    public void Set(string key, ReadOnlyMemory<byte> value)
     {
         _lock.EnterWriteLock();
         try
         {
-            _entries[key] = value;
+            _entries[key] = value.ToArray();
         }
         finally
         {
@@ -53,7 +53,7 @@ public sealed class InMemoryCacheRepository : ICacheRepository, IDisposable
         }
     }
 
-    public bool TryGet(string key, [MaybeNullWhen(false)] out string value)
+    public bool TryGet(string key, [MaybeNullWhen(false)] out byte[] value)
     {
         return _entries.TryGetValue(key, out value);
     }
