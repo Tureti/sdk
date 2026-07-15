@@ -126,30 +126,28 @@ internal static class VolumeOperations
         await client.Api.Trash.EmptyAsync(volumeId, cancellationToken).ConfigureAwait(false);
     }
 
-    public static async ValueTask<VolumeId?> TryGetMainVolumeIdAsync(ProtonDriveClient client, CancellationToken cancellationToken)
+    public static ValueTask<VolumeId?> TryGetMainVolumeIdAsync(ProtonDriveClient client, CancellationToken cancellationToken)
     {
-        var (cacheEntryExists, volumeId) = await client.Cache.TryGetMainVolumeIdAsync(cancellationToken).ConfigureAwait(false);
-        if (cacheEntryExists)
-        {
-            return volumeId;
-        }
+        return client.Cache.GetOrCreateMainVolumeIdAsync(
+            async ct =>
+            {
+                var myFilesFolder = await NodeOperations.TryGetExistingMyFilesFolderAsync(client, ct).ConfigureAwait(false);
 
-        var myFilesFolder = await NodeOperations.TryGetExistingMyFilesFolderAsync(client, cancellationToken).ConfigureAwait(false);
-
-        return myFilesFolder?.Uid.VolumeId;
+                return myFilesFolder?.Uid.VolumeId;
+            },
+            cancellationToken);
     }
 
-    public static async ValueTask<VolumeId?> TryGetPhotosVolumeIdAsync(ProtonDriveClient client, CancellationToken cancellationToken)
+    public static ValueTask<VolumeId?> TryGetPhotosVolumeIdAsync(ProtonDriveClient client, CancellationToken cancellationToken)
     {
-        var (cacheEntryExists, volumeId) = await client.Cache.TryGetPhotosVolumeIdAsync(cancellationToken).ConfigureAwait(false);
-        if (cacheEntryExists)
-        {
-            return volumeId;
-        }
+        return client.Cache.GetOrCreatePhotosVolumeIdAsync(
+            async ct =>
+            {
+                var photosFolder = await PhotosNodeOperations.TryGetExistingPhotosFolderAsync(client, ct).ConfigureAwait(false);
 
-        var photosFolder = await PhotosNodeOperations.TryGetExistingPhotosFolderAsync(client, cancellationToken).ConfigureAwait(false);
-
-        return photosFolder?.Uid.VolumeId;
+                return photosFolder?.Uid.VolumeId;
+            },
+            cancellationToken);
     }
 
     public static async IAsyncEnumerable<DriveEvent> EnumerateEventsAsync(

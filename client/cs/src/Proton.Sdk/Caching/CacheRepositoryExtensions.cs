@@ -5,26 +5,33 @@ namespace Proton.Sdk.Caching;
 
 public static class CacheRepositoryExtensions
 {
-    public static async ValueTask<(bool Exists, T? Value)> TryGetDeserializedValueAsync<T>(
+    /// <summary>
+    /// Deserializes a repository entry when present and maps it through <paramref name="convertToCacheHitOption"/>.
+    /// Returns <see cref="Option{T}.None"/> when the key is missing, deserialization fails, or the converted value is not usable,
+    /// otherwise returns <see cref="Option{T}.Some"/> with the usable value (including <see langword="null"/> when the converter allows it).
+    /// </summary>
+    public static async ValueTask<Option<T>> TryGetDeserializedValueAsync<T>(
         this ICacheRepository repository,
         string key,
         JsonTypeInfo<T> typeInfo,
+        Func<T?, Option<T>> convertToCacheHitOption,
         CancellationToken cancellationToken)
     {
         var serializedValue = await repository.TryGetAsync(key, cancellationToken).ConfigureAwait(false);
         if (serializedValue is null)
         {
-            return default;
+            return Option<T>.None;
         }
 
         try
         {
-            return (true, JsonSerializer.Deserialize(serializedValue, typeInfo));
+            var deserializedValue = JsonSerializer.Deserialize(serializedValue, typeInfo);
+            return convertToCacheHitOption.Invoke(deserializedValue);
         }
         catch
         {
             await repository.RemoveAsync(key, cancellationToken).ConfigureAwait(false);
-            return default;
+            return Option<T>.None;
         }
     }
 }

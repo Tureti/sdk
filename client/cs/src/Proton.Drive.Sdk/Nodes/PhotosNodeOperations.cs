@@ -29,7 +29,7 @@ internal static class PhotosNodeOperations
 
             var nodeUid = new NodeUid(volumeDto.Id, linkDetailsDto.Link.Id);
 
-            var (share, shareKey) = await ShareCrypto.DecryptShareAsync(
+            var shareAndKey = await ShareCrypto.DecryptShareAsync(
                 client,
                 shareDto.Id,
                 shareDto.Key,
@@ -39,16 +39,18 @@ internal static class PhotosNodeOperations
                 ShareType.Photos,
                 cancellationToken).ConfigureAwait(false);
 
+            var (share, shareKey) = shareAndKey;
+
             await client.Cache.SetShareKeyAsync(share.Id, shareKey, cancellationToken).ConfigureAwait(false);
 
-            var metadataResult = await DtoToMetadataConverter.ConvertDtoToFolderMetadataAsync(
+            var conversionResult = await DtoToMetadataConverter.ConvertDtoToNodeMetadataAsync(
                 client,
                 volumeDto.Id,
                 linkDetailsDto,
-                shareKey,
+                shareAndKey,
                 cancellationToken).ConfigureAwait(false);
 
-            return metadataResult.Node;
+            return conversionResult.Metadata.GetFolderNodeOrThrow();
         }
         catch (ProtonApiException e) when (e.Code is DriveApiResponseCodes.DoesNotExist)
         {

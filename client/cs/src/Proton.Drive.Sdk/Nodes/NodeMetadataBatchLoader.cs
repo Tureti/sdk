@@ -23,12 +23,12 @@ internal sealed class NodeMetadataBatchLoader(
 
         foreach (var linkDetails in response.Links)
         {
-            yield return await DtoToMetadataConverter.ConvertDtoToNodeMetadataAsync(
+            yield return (await DtoToMetadataConverter.ConvertDtoToNodeMetadataAsync(
                 _client,
                 volumeId,
                 linkDetails,
                 _knownShareAndKey,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken).ConfigureAwait(false)).Metadata;
         }
     }
 }

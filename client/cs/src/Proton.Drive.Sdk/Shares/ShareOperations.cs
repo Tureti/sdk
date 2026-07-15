@@ -16,29 +16,27 @@ internal static class ShareOperations
 
         var rootFolderId = new NodeUid(response.VolumeId, response.RootLinkId);
 
-        var shareKey = await client.Cache.TryGetShareKeyAsync(shareId, cancellationToken).ConfigureAwait(false);
+        var shareKey = await client.Cache.GetOrCreateShareKeyAsync(
+            shareId,
+            async ct =>
+            {
+                var (_, key) = await ShareCrypto.DecryptShareAsync(
+                    client,
+                    shareId,
+                    response.Key,
+                    response.Passphrase,
+                    membershipAddressId,
+                    rootFolderId,
+                    response.Type,
+                    ct).ConfigureAwait(false);
 
-        Share share;
-        if (shareKey is null)
-        {
-            (share, shareKey) = await ShareCrypto.DecryptShareAsync(
-                client,
-                shareId,
-                response.Key,
-                response.Passphrase,
-                membershipAddressId,
-                rootFolderId,
-                response.Type,
-                cancellationToken).ConfigureAwait(false);
+                return key;
+            },
+            cancellationToken).ConfigureAwait(false);
 
-            await client.Cache.SetShareKeyAsync(shareId, shareKey.Value, cancellationToken).ConfigureAwait(false);
-        }
-        else
-        {
-            share = new Share(shareId, rootFolderId, membershipAddressId, response.Type);
-        }
+        var share = new Share(shareId, rootFolderId, membershipAddressId, response.Type);
 
-        return new ShareAndKey(share, shareKey.Value);
+        return new ShareAndKey(share, shareKey);
     }
 
     public static async ValueTask<List<Share>> GetSharesAsync(ProtonDriveClient client, ShareType? typeFilter, CancellationToken cancellationToken)

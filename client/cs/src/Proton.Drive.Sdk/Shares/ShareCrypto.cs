@@ -8,7 +8,7 @@ namespace Proton.Drive.Sdk.Shares;
 
 internal static class ShareCrypto
 {
-    public static async ValueTask<(Share Share, PgpPrivateKey Key)> DecryptShareAsync(
+    public static async ValueTask<ShareAndKey> DecryptShareAsync(
         ProtonDriveClient client,
         ShareId shareId,
         PgpArmoredSecretKey lockedKey,
@@ -27,6 +27,6 @@ internal static class ShareCrypto
 
         var share = new Share(shareId, rootFolderId, addressId, shareType);
 
-        return (share, key);
+        return new ShareAndKey(share, key);
     }
 }

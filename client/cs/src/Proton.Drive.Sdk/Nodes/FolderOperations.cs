@@ -17,8 +17,7 @@ internal static class FolderOperations
         ShareAndKey? knownShareAndKey,
         CancellationToken cancellationToken)
     {
-        var nodeOperationData =
-            await NodeOperations.GetOperationDataAsync(client, uid, knownShareAndKey, cancellationToken).ConfigureAwait(false);
+        var nodeOperationData = await NodeOperations.GetOperationDataAsync(client, uid, knownShareAndKey, cancellationToken).ConfigureAwait(false);
 
         if (nodeOperationData is not FolderOperationData folderOperationData)
         {

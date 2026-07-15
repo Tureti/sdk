@@ -60,20 +60,21 @@ internal static class NodeOperations
         }
     }
 
-    public static async ValueTask<NodeOperationData> GetOperationDataAsync(
+    public static ValueTask<NodeOperationData> GetOperationDataAsync(
         ProtonDriveClient client,
         NodeUid uid,
         ShareAndKey? knownShareAndKey,
         CancellationToken cancellationToken)
     {
-        var operationData = await client.Cache.TryGetNodeOperationDataAsync(uid, cancellationToken).ConfigureAwait(false);
-        if (operationData is null)
-        {
-            var nodeMetadata = await GetNodeMetadataAsync(client, uid, knownShareAndKey, cancellationToken).ConfigureAwait(false);
-            operationData = nodeMetadata.OperationData;
-        }
+        return client.Cache.GetOrCreateNodeOperationDataAsync(
+            uid,
+            async ct =>
+            {
+                var nodeMetadata = await GetNodeMetadataAsync(client, uid, knownShareAndKey, ct).ConfigureAwait(false);
 
-        return operationData;
+                return nodeMetadata.OperationData;
+            },
+            cancellationToken);
     }
 
     public static IAsyncEnumerable<Node> EnumerateNodesAsync(
@@ -571,7 +572,7 @@ internal static class NodeOperations
 
         var nodeUid = new NodeUid(volumeDto.Id, linkDetailsDto.Link.Id);
 
-        var (share, shareKey) = await ShareCrypto.DecryptShareAsync(
+        var shareAndKey = await ShareCrypto.DecryptShareAsync(
             client,
             shareDto.Id,
             shareDto.Key,
@@ -581,16 +582,18 @@ internal static class NodeOperations
             ShareType.Main,
             cancellationToken).ConfigureAwait(false);
 
+        var (share, shareKey) = shareAndKey;
+
         await client.Cache.SetShareKeyAsync(share.Id, shareKey, cancellationToken).ConfigureAwait(false);
 
-        var (node, _, _, _) = await DtoToMetadataConverter.ConvertDtoToFolderMetadataAsync(
+        var conversionResult = await DtoToMetadataConverter.ConvertDtoToNodeMetadataAsync(
             client,
             volumeDto.Id,
             linkDetailsDto,
-            shareKey,
+            shareAndKey,
             cancellationToken).ConfigureAwait(false);
 
-        return node;
+        return conversionResult.Metadata.GetFolderNodeOrThrow();
     }
 
     private static void GetNameParameters(

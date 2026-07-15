@@ -30,7 +30,7 @@ public sealed class ProtonDriveClient
     public ProtonDriveClient(
         IHttpClientFactory httpClientFactory,
         IProtonAccountClient accountClient,
-        ICacheRepository cacheRepository,
+        ICacheRepository? cacheRepository,
         IFeatureFlagProvider featureFlagProvider,
         ITelemetry telemetry,
         ProtonDriveClientOptions? options = null)
@@ -338,7 +338,7 @@ public sealed class ProtonDriveClient
         public static CreationParameters Create(
             IHttpClientFactory httpClientFactory,
             IProtonAccountClient accountClient,
-            ICacheRepository cacheRepository,
+            ICacheRepository? cacheRepository,
             IFeatureFlagProvider featureFlagProvider,
             ITelemetry telemetry,
             ProtonDriveClientOptions? options = null)

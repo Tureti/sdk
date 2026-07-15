@@ -36,11 +36,11 @@ internal static class InteropProtonDriveClient
 
         var accountClient = new InteropProtonAccountClient(bindingsHandle, new InteropAction<nint, InteropArray<byte>, nint>(request.AccountRequestAction));
 
-        ICacheRepository cacheRepository = request.HasCachePath
+        ICacheRepository? cacheRepository = request.HasCachePath
             ? SqliteCacheRepository.OpenFile(request.CachePath)
-            : new InMemoryCacheRepository();
+            : null;
 
-        if (request.HasCacheEncryptionKey)
+        if (request.HasCacheEncryptionKey && cacheRepository is not null)
         {
             cacheRepository = new EncryptedCacheRepository(
                 cacheRepository,

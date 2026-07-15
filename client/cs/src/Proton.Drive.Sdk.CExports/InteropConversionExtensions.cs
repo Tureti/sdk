@@ -18,6 +18,7 @@ internal static class InteropConversionExtensions
                 case Nodes.FolderNode folderNode:
                     result.Folder = Nodes.Node.ToInterop(folderNode);
                     break;
+
                 case Nodes.FileNode fileNode:
                     result.File = Nodes.Node.ToInterop(fileNode);
                     break;
