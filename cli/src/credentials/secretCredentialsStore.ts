@@ -1,19 +1,17 @@
 import { Logger, ValidationError } from '@protontech/drive-sdk';
 
+import { CREDENTIALS_NAME, CREDENTIALS_SERVICE } from './constants';
 import type { Credentials, CredentialsStore } from './interface';
 import { parseStoredSnapshot } from './parseCredentials';
-
-const SECRET_SERVICE = 'ch.proton.drive/drive-sdk-cli';
-const SECRET_NAME = 'auth-session';
 
 export class SecretsSessionStore implements CredentialsStore {
     constructor(private readonly logger: Logger) {}
 
     async load(): Promise<Credentials | null> {
-        this.logger.debug(`Loading session ${SECRET_NAME} from secrets`);
+        this.logger.debug(`Loading session ${CREDENTIALS_NAME} from secrets`);
         let raw;
         try {
-            raw = await Bun.secrets.get({ service: SECRET_SERVICE, name: SECRET_NAME });
+            raw = await Bun.secrets.get({ service: CREDENTIALS_SERVICE, name: CREDENTIALS_NAME });
         } catch (error: unknown) {
             const message = error instanceof Error ? error.message : String(error);
             throw new ValidationError(
@@ -26,16 +24,16 @@ export class SecretsSessionStore implements CredentialsStore {
     }
 
     async save(snapshot: Credentials): Promise<void> {
-        this.logger.debug(`Saving session ${SECRET_NAME} to secrets`);
+        this.logger.debug(`Saving session ${CREDENTIALS_NAME} to secrets`);
         await Bun.secrets.set({
-            service: SECRET_SERVICE,
-            name: SECRET_NAME,
+            service: CREDENTIALS_SERVICE,
+            name: CREDENTIALS_NAME,
             value: JSON.stringify(snapshot),
         });
     }
 
     async remove(): Promise<void> {
-        this.logger.debug(`Removing session ${SECRET_NAME} from secrets`);
-        await Bun.secrets.delete({ service: SECRET_SERVICE, name: SECRET_NAME });
+        this.logger.debug(`Removing session ${CREDENTIALS_NAME} from secrets`);
+        await Bun.secrets.delete({ service: CREDENTIALS_SERVICE, name: CREDENTIALS_NAME });
     }
 }

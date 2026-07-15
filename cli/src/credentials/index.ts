@@ -4,6 +4,7 @@ import type { Config } from '../config';
 import { Credentials } from './credentials';
 import { PlaintextFileSessionStore } from './fileCredentialsStore';
 import type { CredentialsStore } from './interface';
+import { PassSessionStore } from './passCredentialsStore';
 import { SecretsSessionStore } from './secretCredentialsStore';
 
 export type { Credentials } from './credentials';
@@ -14,8 +15,14 @@ export function initCredentials(config: Config, logger: Logger): Credentials {
 }
 
 function createAuthSessionStore(config: Config, logger: Logger): CredentialsStore {
-    if (config.unsafeSecrets) {
-        return new PlaintextFileSessionStore(config.appDir, logger);
+    switch (config.credentialsStore) {
+        case 'unsafe_file':
+            return new PlaintextFileSessionStore(config.appDir, logger);
+        case 'pass':
+            return new PassSessionStore(logger);
+        case 'keychain':
+            return new SecretsSessionStore(logger);
+        default:
+            throw new Error(`Invalid credentials store: ${config.credentialsStore}`);
     }
-    return new SecretsSessionStore(logger);
 }

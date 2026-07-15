@@ -88,6 +88,7 @@ On upload, the CLI generates WebP thumbnails for common image types (JPEG, PNG, 
 | Variable | Purpose | Default |
 |----------|---------|---------|
 | `PROTON_DRIVE_CACHE_DIR` | If set, **cache**, **app data**, and **logs** all use this single directory (portable installs, explicit data root). | Unset — OS-specific paths below |
+| `PROTON_DRIVE_CREDENTIALS_STORE` | Where to persist the authenticated session: `keychain` (OS secret store) or `pass` ([password-store](https://www.passwordstore.org/)). | `keychain` |
 | `PROTON_DRIVE_LOG_LEVEL` | Minimum log level written by the telemetry stack: `DEBUG`, `INFO`, `WARNING`, `ERROR`. | `DEBUG` |
 
 ## Where data is stored
@@ -100,6 +101,12 @@ Unless `PROTON_DRIVE_CACHE_DIR` is set:
 | **App data** (`clientUid.json`, `config.json`, `events.json`) | `~/Library/Application Support/proton-drive-cli` | `%LOCALAPPDATA%\proton-drive-cli\Data` | `$XDG_DATA_HOME/proton-drive-cli` or `~/.local/share/proton-drive-cli` |
 | **Logs** (`proton-drive.log`) | `~/Library/Logs/proton-drive-cli` | `%LOCALAPPDATA%\proton-drive-cli\Logs` | `$XDG_STATE_HOME/proton-drive-cli` or `~/.local/state/proton-drive-cli` |
 
-**Credentials** are stored in the OS secret store (see [Requirements](#requirements)) under the service `ch.proton.drive/drive-sdk-cli`.
+**Credentials** are stored according to `PROTON_DRIVE_CREDENTIALS_STORE`:
+
+| Value | Location |
+|-------|----------|
+| `keychain` (default) | OS secret store under service `ch.proton.drive/drive-sdk-cli` |
+| `pass` | GPG-encrypted entry `ch.proton.drive/drive-sdk-cli/auth-session` in [pass](https://www.passwordstore.org/) |
+| `unsafe_file` | Plaintext `auth-session.json` in the app data folder (do not use, for testing only) |
 
 To reset local state for troubleshooting, stop the CLI, then remove the relevant directories (or the single override directory).

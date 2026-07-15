@@ -1,9 +1,16 @@
 import { homedir } from 'node:os';
 import path from 'node:path';
 
+import { ValidationError } from '@protontech/drive-sdk';
 import { LogLevel } from '@protontech/drive-sdk/telemetry';
 
 const APP_DIR_NAME = 'proton-drive-cli';
+
+export enum CredentialsStoreType {
+    Keychain = 'keychain',
+    UnsafeFile = 'unsafe_file',
+    Pass = 'pass',
+}
 
 export interface InitConfig {
     appVersion: string;
@@ -45,17 +52,13 @@ export interface Config {
     /** Level of logging to both console and log file. */
     logLevel: LogLevel;
 
-    /** Only for testing: store secrets in the app data folder instead of keychain. */
-    unsafeSecrets: boolean;
+    /** Where to persist the authenticated session. */
+    credentialsStore: CredentialsStoreType;
     /** Only for testing: store cryptographic cache unencrypted. */
     unsafeCache: boolean;
 }
 
 export function getConfig(options: InitConfig): Config {
-    const unsafeSecrets = ['yes', 'y', '1', 'true'].includes(
-        process.env.PROTON_DRIVE_UNSAFE_SECRETS?.toLowerCase() ?? '',
-    );
-
     const logLevelOption = process.env.PROTON_DRIVE_LOG_LEVEL?.toUpperCase() ?? 'DEBUG';
     const logLevel = LogLevel[logLevelOption as keyof typeof LogLevel] ?? LogLevel.DEBUG;
 
@@ -77,8 +80,8 @@ export function getConfig(options: InitConfig): Config {
         enableConsoleLog: options.enableConsoleLog || false,
         enableMetrics: options.enableMetrics || false,
         logLevel,
-        unsafeSecrets,
-        unsafeCache: unsafeSecrets,
+        credentialsStore: parseCredentialsStore(process.env.PROTON_DRIVE_CREDENTIALS_STORE),
+        unsafeCache: parseBooleanEnv(process.env.PROTON_DRIVE_UNSAFE_CACHE),
     };
 }
 
@@ -127,4 +130,19 @@ function defaultDataDirs(): Pick<Config, 'cacheDir' | 'appDir' | 'logDir'> {
         appDir: path.join(xdgData, APP_DIR_NAME),
         logDir: path.join(xdgState, APP_DIR_NAME),
     };
+}
+
+function parseCredentialsStore(value: string | undefined): CredentialsStoreType {
+    const normalized = value?.toLowerCase() ?? 'keychain';
+    const allowedValues = Object.values(CredentialsStoreType);
+    if (allowedValues.includes(normalized as CredentialsStoreType)) {
+        return normalized as CredentialsStoreType;
+    }
+    throw new ValidationError(
+        `Invalid PROTON_DRIVE_CREDENTIALS_STORE: ${value}. Expected one of: ${allowedValues.join(', ')}.`,
+    );
+}
+
+function parseBooleanEnv(value: string | undefined): boolean {
+    return ['yes', 'y', '1', 'true'].includes(value?.toLowerCase() ?? '');
 }
