@@ -391,7 +391,7 @@ message ProtonDriveClientOptions {
     string uid = 1;
 
     string bindings_language = 2; // Optional
-        
+
     int32 api_call_timeout = 3; // Optional
     int32 storage_call_timeout = 4; // Optional
 
@@ -537,7 +537,7 @@ message DriveClientRenameRequest {
     int64 client_handle = 1;
     string node_uid = 2;
     string new_name = 3;
-    string new_media_type = 4;
+    string new_media_type = 4; // optional
     int64 cancellation_token_source_handle = 5;
 }
 

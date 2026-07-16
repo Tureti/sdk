@@ -267,7 +267,7 @@ internal static class InteropProtonDriveClient
         await client.RenameNodeAsync(
             NodeUid.Parse(request.NodeUid),
             request.NewName,
-            request.NewMediaType,
+            request.HasNewMediaType ? request.NewMediaType : null,
             cancellationToken).ConfigureAwait(false);
         return null;
     }
