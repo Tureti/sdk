@@ -2,6 +2,7 @@ package me.proton.drive.sdk.internal
 
 import com.google.protobuf.Any
 import com.google.protobuf.StringValue
+import com.google.protobuf.kotlin.toByteString
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.ProducerScope
 import me.proton.drive.sdk.converter.NodeConverter
@@ -55,6 +56,7 @@ class JniProtonPhotosClient internal constructor() : JniBaseProtonDriveSdk() {
                 }
                 accountRequestAction = ProtonDriveSdkNativeClient.getAccountRequestPointer()
                 request.cachePath?.let { cachePath = it }
+                request.cacheEncryptionKey?.let { cacheEncryptionKey = it.toByteString() }
                 telemetry = telemetry {
                     loggerProviderHandle = request.loggerProvider.handle
                     recordMetricAction = ProtonDriveSdkNativeClient.getRecordMetricPointer()

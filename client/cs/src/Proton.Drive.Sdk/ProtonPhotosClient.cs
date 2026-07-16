@@ -22,7 +22,7 @@ public sealed class ProtonPhotosClient
     public ProtonPhotosClient(
         IHttpClientFactory httpClientFactory,
         IProtonAccountClient accountClient,
-        ICacheRepository cacheRepository,
+        ICacheRepository? cacheRepository,
         IFeatureFlagProvider featureFlagProvider,
         ITelemetry telemetry,
         ProtonDriveClientOptions? creationParameters = null)

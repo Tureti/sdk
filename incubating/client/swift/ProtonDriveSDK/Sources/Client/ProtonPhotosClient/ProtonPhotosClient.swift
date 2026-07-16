@@ -44,6 +44,9 @@ public actor ProtonPhotosClient: Sendable, ProtonSDKClient {
             if let cachePath = configuration.cachePath {
                 $0.cachePath = cachePath
             }
+            if let cacheEncryptionKey = configuration.cacheEncryptionKey {
+                $0.cacheEncryptionKey = cacheEncryptionKey
+            }
 
             $0.telemetry = Proton_Drive_Sdk_Telemetry.with {
                 $0.logAction = Int64(ObjectHandle(callback: cCompatibleLogCallback))

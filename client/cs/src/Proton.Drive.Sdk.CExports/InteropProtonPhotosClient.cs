@@ -36,9 +36,14 @@ internal static class InteropProtonPhotosClient
 
         var accountClient = new InteropProtonAccountClient(bindingsHandle, new InteropAction<nint, InteropArray<byte>, nint>(request.AccountRequestAction));
 
-        var cacheRepository = request.HasCachePath
+        ICacheRepository? cacheRepository = request.HasCachePath
             ? SqliteCacheRepository.OpenFile(request.CachePath)
-            : SqliteCacheRepository.OpenInMemory();
+            : null;
+
+        if (request.HasCacheEncryptionKey && cacheRepository is not null)
+        {
+            cacheRepository = new EncryptedCacheRepository(cacheRepository, request.CacheEncryptionKey.ToByteArray());
+        }
 
         ITelemetry telemetry = request.Telemetry.ToTelemetry(bindingsHandle) is { } interopTelemetry
             ? new DriveInteropTelemetryDecorator(interopTelemetry)

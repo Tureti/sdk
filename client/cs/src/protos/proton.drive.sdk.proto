@@ -806,6 +806,10 @@ message DrivePhotosClientCreateRequest {
     //   flag_name: UTF-8 encoded feature flag name
     //   returns: 0 for disabled, non-zero for enabled
     int64 feature_enabled_function = 7; // Optional
+
+    // Encryption key used to encrypt the cache. Must be a 32-byte
+    // random key. If a null value is provided, cache won't be encrypted.
+    bytes cache_encryption_key = 8; // Optional
 }
 
 // The response must not have a value.
