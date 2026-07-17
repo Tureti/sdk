@@ -24,8 +24,11 @@ internal sealed partial class DownloadState(
     public BlockListingRevisionDto RevisionDto { get; } = revisionDto;
     public long? ClaimedSize { get; } = claimedSize;
     public long QueueToken { get; } = queueToken;
+
+    // The keys do not belong to this class, do not dispose them
     public PgpPrivateKey NodeKey { get; } = nodeKey;
     public PgpSessionKey ContentKey { get; } = contentKey;
+
     public bool IsResumable { get; set; } = true;
 
     public int GetNextBlockIndexToDownload()
@@ -69,9 +72,6 @@ internal sealed partial class DownloadState(
 
     public ValueTask DisposeAsync()
     {
-        NodeKey.Dispose();
-        ContentKey.Dispose();
-
         if (!_isCompleted)
         {
             LogDownloadNotCompleted(Uid);
