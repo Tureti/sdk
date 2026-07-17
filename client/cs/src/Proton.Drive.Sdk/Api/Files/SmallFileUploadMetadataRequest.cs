@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using Proton.Drive.Sdk.Api.Links;
 using Proton.Sdk.Cryptography;
+using Proton.Sdk.Serialization;
 
 namespace Proton.Drive.Sdk.Api.Files;
 
@@ -9,7 +10,8 @@ internal sealed class SmallFileUploadMetadataRequest
     public required PgpArmoredMessage Name { get; init; }
 
     [JsonPropertyName("NameHash")]
-    public required string NameHash { get; init; }
+    [JsonConverter(typeof(ForgivingBytesToHexJsonConverter))]
+    public required ReadOnlyMemory<byte> NameHash { get; init; }
 
     [JsonPropertyName("ParentLinkID")]
     public required LinkId ParentLinkId { get; init; }

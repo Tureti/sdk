@@ -174,7 +174,7 @@ internal sealed partial class SmallRevisionUploadBackend : IRevisionUploadBacken
             var metadata = new SmallFileUploadMetadataRequest
             {
                 Name = newFile.FileCreationRequest.Name,
-                NameHash = Convert.ToHexStringLower(newFile.FileCreationRequest.NameHashDigest.Span),
+                NameHash = newFile.FileCreationRequest.NameHashDigest,
                 ParentLinkId = newFile.FileCreationRequest.ParentLinkId,
                 NodePassphrase = newFile.FileCreationRequest.Passphrase,
                 NodePassphraseSignature = newFile.FileCreationRequest.PassphraseSignature,

@@ -14,9 +14,11 @@ internal sealed class TimelinePhotoDto
     public required DateTime CaptureTime { get; init; }
 
     [JsonPropertyName("Hash")]
-    public required string NameHash { get; init; }
+    [JsonConverter(typeof(ForgivingBytesToHexJsonConverter))]
+    public required ReadOnlyMemory<byte> NameHash { get; init; }
 
-    public string? ContentHash { get; init; }
+    [JsonConverter(typeof(ForgivingBytesToHexJsonConverter))]
+    public ReadOnlyMemory<byte>? ContentHash { get; init; }
 
     public required IReadOnlyList<RelatedPhotoDto> RelatedPhotos { get; init; } = [];
 

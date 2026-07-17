@@ -10,7 +10,8 @@ internal sealed class PhotoAlbumInclusionDto
     public required LinkId Id { get; init; }
 
     [JsonPropertyName("Hash")]
-    public required string NameHash { get; init; }
+    [JsonConverter(typeof(ForgivingBytesToHexJsonConverter))]
+    public required ReadOnlyMemory<byte> NameHash { get; init; }
 
     [JsonConverter(typeof(ForgivingBytesToHexJsonConverter))]
     public required ReadOnlyMemory<byte> ContentHash { get; init; }
