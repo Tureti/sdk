@@ -5,19 +5,28 @@ namespace Proton.Sdk.Caching;
 
 public sealed class SqliteCacheRepository : ICacheRepository, IDisposable
 {
-    private readonly SqliteConnection _connection;
+    private const int DatabaseSchemaVersion = 1;
+
+    private readonly SqliteConnection _anchorConnection;
     private readonly int? _maxCacheSize;
 
-    private SqliteCacheRepository(SqliteConnection connection, int? maxCacheSize)
+    private SqliteCacheRepository(SqliteConnection anchorConnection, int? maxCacheSize)
     {
-        _connection = connection;
+        _anchorConnection = anchorConnection;
         _maxCacheSize = maxCacheSize;
     }
 
-    public static SqliteCacheRepository OpenInMemory(int? maxCacheSize = 1000)
+    public static SqliteCacheRepository OpenInMemory(string? name = null, int? maxCacheSize = 1000)
     {
+        if (name is { Length: 0 })
+        {
+            throw new ArgumentException("Value cannot be empty.", nameof(name));
+        }
+
         // Avoiding SqliteConnectionStringBuilder due to IL2113 warning in AOT scenarios
-        var connectionString = $"Data Source={Guid.NewGuid().ToString()};Mode=Memory;Cache=Shared";
+        var connectionName = name ?? Guid.NewGuid().ToString();
+
+        var connectionString = $"Data Source={connectionName};Mode=Memory;Cache=Shared";
 
         return Open(connectionString, maxCacheSize);
     }
@@ -28,6 +37,20 @@ public sealed class SqliteCacheRepository : ICacheRepository, IDisposable
         var connectionString = $"Data Source=\"{path}\"";
 
         return Open(connectionString, maxCacheSize);
+    }
+
+    ValueTask ICacheRepository.EnsureValueFormatVersionAsync(string valueFormatVersion, CancellationToken cancellationToken)
+    {
+        try
+        {
+            EnsureValueFormatVersion(valueFormatVersion);
+
+            return ValueTask.CompletedTask;
+        }
+        catch (Exception exception)
+        {
+            return ValueTask.FromException(exception);
+        }
     }
 
     ValueTask ICacheRepository.SetAsync(string key, ReadOnlyMemory<byte> value, CancellationToken cancellationToken)
@@ -91,9 +114,42 @@ public sealed class SqliteCacheRepository : ICacheRepository, IDisposable
         return ValueTask.CompletedTask;
     }
 
+    /// <summary>
+    /// Wipes all entries when <paramref name="valueFormatVersion"/> differs from the stored version, then writes the new version.
+    /// </summary>
+    /// <remarks>
+    /// Uses its own connection and transaction, independent of concurrent Set/TryGet/Remove calls.
+    /// Multiple callers may invoke this concurrently on first use of a shared repository (each with their own lazy initializer);
+    /// that is safe only when every caller passes the same version string. A mismatch from any caller deletes all entries, including
+    /// those written by another caller that uses a different version.
+    /// </remarks>
+    public void EnsureValueFormatVersion(string valueFormatVersion)
+    {
+        using var connection = new SqliteConnection(_anchorConnection.ConnectionString);
+        connection.Open();
+
+        var storedValueFormatVersion = TryGetStoredValueFormatVersion(connection);
+
+        if (string.Equals(storedValueFormatVersion, valueFormatVersion, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        using var transaction = connection.BeginTransaction();
+
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "DELETE FROM Entries";
+        command.ExecuteNonQuery();
+
+        WriteCacheVersion(connection, DatabaseSchemaVersion, valueFormatVersion, transaction);
+
+        transaction.Commit();
+    }
+
     public void Set(string key, ReadOnlyMemory<byte> value)
     {
-        using var connection = new SqliteConnection(_connection.ConnectionString);
+        using var connection = new SqliteConnection(_anchorConnection.ConnectionString);
         connection.Open();
 
         using var transaction = connection.BeginTransaction();
@@ -144,7 +200,7 @@ public sealed class SqliteCacheRepository : ICacheRepository, IDisposable
 
     public void Remove(string key)
     {
-        using var connection = new SqliteConnection(_connection.ConnectionString);
+        using var connection = new SqliteConnection(_anchorConnection.ConnectionString);
         connection.Open();
 
         using var command = connection.CreateCommand();
@@ -157,7 +213,7 @@ public sealed class SqliteCacheRepository : ICacheRepository, IDisposable
 
     public void Clear()
     {
-        using var connection = new SqliteConnection(_connection.ConnectionString);
+        using var connection = new SqliteConnection(_anchorConnection.ConnectionString);
         connection.Open();
 
         using var command = connection.CreateCommand();
@@ -169,7 +225,7 @@ public sealed class SqliteCacheRepository : ICacheRepository, IDisposable
 
     public byte[]? TryGet(string key)
     {
-        using var connection = new SqliteConnection(_connection.ConnectionString);
+        using var connection = new SqliteConnection(_anchorConnection.ConnectionString);
         connection.Open();
 
         using var transaction = connection.BeginTransaction();
@@ -204,9 +260,9 @@ public sealed class SqliteCacheRepository : ICacheRepository, IDisposable
 
     public void Dispose()
     {
-        SqliteConnection.ClearPool(_connection);
-        _connection.Close();
-        _connection.Dispose();
+        SqliteConnection.ClearPool(_anchorConnection);
+        _anchorConnection.Close();
+        _anchorConnection.Dispose();
     }
 
     private static int GetCacheSize(SqliteConnection connection, SqliteTransaction transaction)
@@ -271,6 +327,73 @@ public sealed class SqliteCacheRepository : ICacheRepository, IDisposable
 
         command.ExecuteNonQuery();
 
+        var storedDatabaseSchemaVersion = TryGetStoredDatabaseSchemaVersion(connection);
+
+        if (storedDatabaseSchemaVersion != DatabaseSchemaVersion)
+        {
+            DropSchema(connection);
+            EnsureSchema(connection);
+            WriteCacheVersion(connection, DatabaseSchemaVersion, valueFormatVersion: null);
+        }
+        else
+        {
+            EnsureSchema(connection);
+        }
+    }
+
+    private static int? TryGetStoredDatabaseSchemaVersion(SqliteConnection connection)
+    {
+        if (!CacheVersionTableExists(connection))
+        {
+            return null;
+        }
+
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT DatabaseSchemaVersion FROM CacheVersion LIMIT 1";
+
+        var result = command.ExecuteScalar();
+
+        return result is null or DBNull ? null : Convert.ToInt32(result);
+    }
+
+    private static string? TryGetStoredValueFormatVersion(SqliteConnection connection)
+    {
+        if (!CacheVersionTableExists(connection))
+        {
+            return null;
+        }
+
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT ValueFormatVersion FROM CacheVersion LIMIT 1";
+
+        return command.ExecuteScalar() as string;
+    }
+
+    private static bool CacheVersionTableExists(SqliteConnection connection)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'CacheVersion' LIMIT 1";
+
+        return command.ExecuteScalar() is not null;
+    }
+
+    private static void DropSchema(SqliteConnection connection)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            DROP TABLE IF EXISTS Entries;
+            DROP INDEX IF EXISTS idx_entries_last_accessed;
+            DROP INDEX IF EXISTS idx_cacheversion_database_schema_version;
+            DROP TABLE IF EXISTS CacheVersion;
+            """;
+
+        command.ExecuteNonQuery();
+    }
+
+    private static void EnsureSchema(SqliteConnection connection)
+    {
+        using var command = connection.CreateCommand();
         command.CommandText =
             """
             CREATE TABLE IF NOT EXISTS Entries (
@@ -278,12 +401,36 @@ public sealed class SqliteCacheRepository : ICacheRepository, IDisposable
                 Value BLOB NOT NULL,
                 LastAccessedUtc INTEGER NOT NULL DEFAULT 0,
                 PRIMARY KEY (Key)
-            )
+            );
+            CREATE INDEX IF NOT EXISTS idx_entries_last_accessed ON Entries(LastAccessedUtc);
+            CREATE TABLE IF NOT EXISTS CacheVersion (
+                DatabaseSchemaVersion INTEGER NOT NULL,
+                ValueFormatVersion TEXT
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_cacheversion_database_schema_version
+                ON CacheVersion(DatabaseSchemaVersion);
             """;
 
         command.ExecuteNonQuery();
+    }
 
-        command.CommandText = "CREATE INDEX IF NOT EXISTS idx_entries_last_accessed ON Entries(LastAccessedUtc)";
+    private static void WriteCacheVersion(
+        SqliteConnection connection,
+        int databaseSchemaVersion,
+        string? valueFormatVersion,
+        SqliteTransaction? transaction = null)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText =
+            """
+            INSERT INTO CacheVersion (DatabaseSchemaVersion, ValueFormatVersion)
+            VALUES (@databaseSchemaVersion, @valueFormatVersion)
+            ON CONFLICT(DatabaseSchemaVersion) DO UPDATE SET
+                ValueFormatVersion = excluded.ValueFormatVersion
+            """;
+        command.Parameters.AddWithValue("@databaseSchemaVersion", databaseSchemaVersion);
+        command.Parameters.AddWithValue("@valueFormatVersion", valueFormatVersion ?? (object)DBNull.Value);
 
         command.ExecuteNonQuery();
     }

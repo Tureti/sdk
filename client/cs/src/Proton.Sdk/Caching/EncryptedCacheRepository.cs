@@ -6,15 +6,24 @@ namespace Proton.Sdk.Caching;
 
 public sealed class EncryptedCacheRepository(ICacheRepository inner, byte[] encryptionKey) : ICacheRepository
 {
+    private const int EncryptionFormatVersion = 1;
+
     private const int IvByteCount = 12;
     private const int SaltByteCount = 16;
     private const int TagByteCount = 16;
     private const int KeyByteCount = 32;
 
+    private static readonly byte[] CacheEncryptionContext = "Drive.EncryptedCacheRepository"u8.ToArray();
+
     private readonly ICacheRepository _inner = inner;
     private readonly byte[] _encryptionKey = encryptionKey;
 
-    private static byte[] CacheEncryptionContext => "Drive.EncryptedCacheRepository"u8.ToArray();
+    public ValueTask EnsureValueFormatVersionAsync(string valueFormatVersion, CancellationToken cancellationToken)
+    {
+        var composedValueFormatVersion = $"{valueFormatVersion}.enc:{EncryptionFormatVersion}";
+
+        return _inner.EnsureValueFormatVersionAsync(composedValueFormatVersion, cancellationToken);
+    }
 
     public ValueTask SetAsync(string key, ReadOnlyMemory<byte> value, CancellationToken cancellationToken)
     {

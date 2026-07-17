@@ -9,30 +9,43 @@ internal sealed class AccountEntityCache(ICacheRepository repository) : IAccount
 {
     private const string CurrentUserDefaultAddressIdCacheKey = "user:current:addresses:default:id";
 
-    private readonly ICacheRepository _repository = repository;
-
-    public ValueTask SetAddressAsync(Address address, CancellationToken cancellationToken)
+    private readonly Lazy<Task<ICacheRepository>> _getCacheRepository = new(async () =>
     {
+        // If this fails, the cache will remain unusable until the next app restart, which we can live with (for now?).
+        await repository.EnsureValueFormatVersionAsync(AccountCacheValueFormat.Version, CancellationToken.None).ConfigureAwait(false);
+        return repository;
+    });
+
+    public async ValueTask SetAddressAsync(Address address, CancellationToken cancellationToken)
+    {
+        var repo = await _getCacheRepository.Value.ConfigureAwait(false);
+
         var value = JsonSerializer.SerializeToUtf8Bytes(address, AccountEntitiesSerializerContext.Default.Address);
 
-        return _repository.SetAsync(GetAddressCacheKey(address.Id), value, cancellationToken);
+        await repo.SetAsync(GetAddressCacheKey(address.Id), value, cancellationToken).ConfigureAwait(false);
     }
 
     public async ValueTask<Address?> TryGetAddressAsync(AddressId addressId, CancellationToken cancellationToken)
     {
-        var value = await _repository.TryGetAsync(GetAddressCacheKey(addressId), cancellationToken).ConfigureAwait(false);
+        var repo = await _getCacheRepository.Value.ConfigureAwait(false);
+
+        var value = await repo.TryGetAsync(GetAddressCacheKey(addressId), cancellationToken).ConfigureAwait(false);
 
         return value is not null ? JsonSerializer.Deserialize(value, AccountEntitiesSerializerContext.Default.Address) : null;
     }
 
-    public ValueTask SetCurrentUserDefaultAddressIdAsync(AddressId addressId, CancellationToken cancellationToken)
+    public async ValueTask SetCurrentUserDefaultAddressIdAsync(AddressId addressId, CancellationToken cancellationToken)
     {
-        return _repository.SetUtf8StringAsync(CurrentUserDefaultAddressIdCacheKey, addressId.ToString(), cancellationToken);
+        var repo = await _getCacheRepository.Value.ConfigureAwait(false);
+
+        await repo.SetUtf8StringAsync(CurrentUserDefaultAddressIdCacheKey, addressId.ToString(), cancellationToken).ConfigureAwait(false);
     }
 
     public async ValueTask<AddressId?> TryGetCurrentUserDefaultAddressIdAsync(CancellationToken cancellationToken)
     {
-        var value = await _repository.TryGetUtf8StringAsync(CurrentUserDefaultAddressIdCacheKey, cancellationToken).ConfigureAwait(false);
+        var repo = await _getCacheRepository.Value.ConfigureAwait(false);
+
+        var value = await repo.TryGetUtf8StringAsync(CurrentUserDefaultAddressIdCacheKey, cancellationToken).ConfigureAwait(false);
 
         return value is not null ? (AddressId)value : null;
     }

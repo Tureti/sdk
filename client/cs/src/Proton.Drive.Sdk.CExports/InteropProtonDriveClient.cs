@@ -42,9 +42,7 @@ internal static class InteropProtonDriveClient
 
         if (request.HasCacheEncryptionKey && cacheRepository is not null)
         {
-            cacheRepository = new EncryptedCacheRepository(
-                cacheRepository,
-                request.CacheEncryptionKey.ToByteArray());
+            cacheRepository = new EncryptedCacheRepository(cacheRepository, request.CacheEncryptionKey.ToByteArray());
         }
 
         ITelemetry telemetry = request.Telemetry.ToTelemetry(bindingsHandle) is { } interopTelemetry

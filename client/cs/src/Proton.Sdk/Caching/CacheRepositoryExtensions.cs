@@ -36,6 +36,15 @@ public static class CacheRepositoryExtensions
         }
     }
 
+    public static ValueTask SetAsync(
+        this ICacheRepository repository,
+        string key,
+        ReadOnlySpan<byte> value,
+        CancellationToken cancellationToken)
+    {
+        return repository.SetAsync(key, value.ToArray(), cancellationToken);
+    }
+
     public static ValueTask SetUtf8StringAsync(this ICacheRepository repository, string key, string value, CancellationToken cancellationToken)
     {
         return repository.SetAsync(key, Encoding.UTF8.GetBytes(value), cancellationToken);

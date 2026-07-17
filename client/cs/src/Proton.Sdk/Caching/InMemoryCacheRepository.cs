@@ -8,6 +8,11 @@ public sealed class InMemoryCacheRepository : ICacheRepository, IDisposable
     private readonly ConcurrentDictionary<string, byte[]> _entries = new();
     private readonly ReaderWriterLockSlim _lock = new();
 
+    public ValueTask EnsureValueFormatVersionAsync(string valueFormatVersion, CancellationToken cancellationToken)
+    {
+        return ValueTask.CompletedTask;
+    }
+
     ValueTask ICacheRepository.SetAsync(string key, ReadOnlyMemory<byte> value, CancellationToken cancellationToken)
     {
         Set(key, value);

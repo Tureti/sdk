@@ -12,18 +12,32 @@ namespace Proton.Drive.Sdk.Caching;
 
 internal sealed class DriveCache(ICacheRepository? repository = null) : IDriveCache
 {
+    private const int ObjectSchemaVersion = 1;
+    private const int SerializationVersion = 1;
+
     private const string MainVolumeIdCacheKey = "volume:main:id";
     private const string PhotosVolumeIdCacheKey = "volume:photos:id";
 
     private const int MaxMemoryEntries = 1000;
     private const double MemoryEvictionRatio = 0.25;
 
-    private readonly ICacheRepository? _repository = repository;
+    private static readonly string ValueFormatVersion = $"obj:{ObjectSchemaVersion}.ser:{SerializationVersion}";
+
     private readonly HybridMemoryCache _memoryCache = new(MaxMemoryEntries, MemoryEvictionRatio);
 
-    public ValueTask<VolumeId?> GetOrCreateMainVolumeIdAsync(Func<CancellationToken, ValueTask<VolumeId?>> factory, CancellationToken cancellationToken)
+    private readonly Lazy<Task<ICacheRepository>>? _getCacheRepository = repository is not null
+        ? new Lazy<Task<ICacheRepository>>(async () =>
+        {
+            // If this fails, the cache will remain unusable until the next app restart, which we can live with (for now?).
+            await repository.EnsureValueFormatVersionAsync(ValueFormatVersion, CancellationToken.None).ConfigureAwait(false);
+            return repository;
+        })
+        : null;
+
+    public async ValueTask<VolumeId?> GetOrCreateMainVolumeIdAsync(Func<CancellationToken, ValueTask<VolumeId?>> factory, CancellationToken cancellationToken)
     {
-        return GetOrCreateNullableAsync(MainVolumeIdCacheKey, DriveCacheSerializerContext.Default.NullableVolumeId, factory, cancellationToken);
+        return await GetOrCreateNullableAsync(MainVolumeIdCacheKey, DriveCacheSerializerContext.Default.NullableVolumeId, factory, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     public ValueTask SetMainVolumeIdAsync(VolumeId? volumeId, CancellationToken cancellationToken)
@@ -76,11 +90,15 @@ internal sealed class DriveCache(ICacheRepository? repository = null) : IDriveCa
         return SetAsync(GetNodeOperationDataCacheKey(nodeId), operationData, DriveSecretsSerializerContext.Default.NodeOperationData, cancellationToken);
     }
 
-    public ValueTask ClearAsync()
+    public async ValueTask ClearAsync()
     {
         _memoryCache.Clear();
 
-        return _repository?.ClearAsync() ?? ValueTask.CompletedTask;
+        if (_getCacheRepository is not null)
+        {
+            var repo = await _getCacheRepository.Value.ConfigureAwait(false);
+            await repo.ClearAsync().ConfigureAwait(false);
+        }
     }
 
     private static string GetShareKeyCacheKey(ShareId shareId)
@@ -96,7 +114,7 @@ internal sealed class DriveCache(ICacheRepository? repository = null) : IDriveCa
     private async ValueTask<DriveCacheAcquisition<T>> TryAcquireAsync<T>(
         string key,
         JsonTypeInfo<T> typeInfo,
-        Func<T?, Option<T>> convertNullabilityToCacheHitOption,
+        Func<T?, Option<T>> convertToCacheHitOption,
         CancellationToken cancellationToken)
     {
         if (_memoryCache.TryGet<T>(key, out var memoryCached))
@@ -104,19 +122,12 @@ internal sealed class DriveCache(ICacheRepository? repository = null) : IDriveCa
             return DriveCacheAcquisition<T>.ForValue(memoryCached);
         }
 
-        if (_repository is not null)
-        {
-            var repositoryValueOrNone = await _repository.TryGetDeserializedValueAsync(
-                key,
-                typeInfo,
-                convertNullabilityToCacheHitOption,
-                cancellationToken).ConfigureAwait(false);
+        var repositoryValueOrNone = await TryReadFromRepositoryAsync(key, typeInfo, convertToCacheHitOption, cancellationToken).ConfigureAwait(false);
 
-            if (repositoryValueOrNone.TryGetValue(out var repositoryValue))
-            {
-                _memoryCache.Set(key, repositoryValue);
-                return DriveCacheAcquisition<T>.ForValue(repositoryValue);
-            }
+        if (repositoryValueOrNone.TryGetValue(out var repositoryValue))
+        {
+            _memoryCache.Set(key, repositoryValue);
+            return DriveCacheAcquisition<T>.ForValue(repositoryValue);
         }
 
         var acquisition = await _memoryCache.TryAcquireOrWaitAsync<T>(key, cancellationToken).ConfigureAwait(false);
@@ -159,15 +170,11 @@ internal sealed class DriveCache(ICacheRepository? repository = null) : IDriveCa
             key,
             async ct =>
             {
-                if (_repository is not null)
-                {
-                    var repositoryValueOrNone = await _repository.TryGetDeserializedValueAsync(key, typeInfo, convertToCacheHitOption, ct)
-                        .ConfigureAwait(false);
+                var repositoryValueOrNone = await TryReadFromRepositoryAsync(key, typeInfo, convertToCacheHitOption, ct).ConfigureAwait(false);
 
-                    if (repositoryValueOrNone.TryGetValue(out var repositoryValue))
-                    {
-                        return repositoryValue;
-                    }
+                if (repositoryValueOrNone.TryGetValue(out var repositoryValue))
+                {
+                    return repositoryValue;
                 }
 
                 var value = await factory.Invoke(ct).ConfigureAwait(false);
@@ -186,15 +193,31 @@ internal sealed class DriveCache(ICacheRepository? repository = null) : IDriveCa
         return WriteToRepositoryAsync(key, value, typeInfo, cancellationToken);
     }
 
-    private ValueTask WriteToRepositoryAsync<T>(string key, T value, JsonTypeInfo<T> typeInfo, CancellationToken cancellationToken)
+    private async ValueTask<Option<T>> TryReadFromRepositoryAsync<T>(
+        string key,
+        JsonTypeInfo<T> typeInfo,
+        Func<T?, Option<T>> convertToCacheHitOption,
+        CancellationToken cancellationToken)
     {
-        if (_repository is null)
+        if (_getCacheRepository is null)
         {
-            return ValueTask.CompletedTask;
+            return Option<T>.None;
         }
 
+        var repo = await _getCacheRepository.Value.ConfigureAwait(false);
+        return await repo.TryGetDeserializedValueAsync(key, typeInfo, convertToCacheHitOption, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async ValueTask WriteToRepositoryAsync<T>(string key, T value, JsonTypeInfo<T> typeInfo, CancellationToken cancellationToken)
+    {
+        if (_getCacheRepository is null)
+        {
+            return;
+        }
+
+        var repo = await _getCacheRepository.Value.ConfigureAwait(false);
         var serializedValue = JsonSerializer.SerializeToUtf8Bytes(value, typeInfo);
 
-        return _repository.SetAsync(key, serializedValue, cancellationToken);
+        await repo.SetAsync(key, serializedValue, cancellationToken).ConfigureAwait(false);
     }
 }

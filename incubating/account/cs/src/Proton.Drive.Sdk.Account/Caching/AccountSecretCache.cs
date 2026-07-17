@@ -10,34 +10,47 @@ internal sealed class AccountSecretCache(ICacheRepository repository) : IAccount
 {
     private const string UserKeysCacheKey = "user:current:keys";
 
-    private readonly ICacheRepository _repository = repository;
-
-    public ValueTask SetUserKeysAsync(IEnumerable<PgpPrivateKey> unlockedKeys, CancellationToken cancellationToken)
+    private readonly Lazy<Task<ICacheRepository>> _getCacheRepository = new(async () =>
     {
+        // If this fails, the cache will remain unusable until the next app restart, which we can live with (for now?).
+        await repository.EnsureValueFormatVersionAsync(AccountCacheValueFormat.Version, CancellationToken.None).ConfigureAwait(false);
+        return repository;
+    });
+
+    public async ValueTask SetUserKeysAsync(IEnumerable<PgpPrivateKey> unlockedKeys, CancellationToken cancellationToken)
+    {
+        var repo = await _getCacheRepository.Value.ConfigureAwait(false);
+
         var serializedValue = JsonSerializer.SerializeToUtf8Bytes(unlockedKeys, SecretsSerializerContext.Default.IEnumerablePgpPrivateKey);
 
-        return _repository.SetAsync(UserKeysCacheKey, serializedValue, cancellationToken);
+        await repo.SetAsync(UserKeysCacheKey, serializedValue, cancellationToken).ConfigureAwait(false);
     }
 
     public async ValueTask<IReadOnlyList<PgpPrivateKey>?> TryGetUserKeysAsync(CancellationToken cancellationToken)
     {
-        var serializedValue = await _repository.TryGetAsync(UserKeysCacheKey, cancellationToken).ConfigureAwait(false);
+        var repo = await _getCacheRepository.Value.ConfigureAwait(false);
+
+        var serializedValue = await repo.TryGetAsync(UserKeysCacheKey, cancellationToken).ConfigureAwait(false);
 
         return serializedValue is not null
             ? JsonSerializer.Deserialize(serializedValue, SecretsSerializerContext.Default.PgpPrivateKeyArray)
             : null;
     }
 
-    public ValueTask SetAddressKeysAsync(AddressId addressId, IEnumerable<PgpPrivateKey> unlockedKeys, CancellationToken cancellationToken)
+    public async ValueTask SetAddressKeysAsync(AddressId addressId, IEnumerable<PgpPrivateKey> unlockedKeys, CancellationToken cancellationToken)
     {
+        var repo = await _getCacheRepository.Value.ConfigureAwait(false);
+
         var serializedValue = JsonSerializer.SerializeToUtf8Bytes(unlockedKeys, SecretsSerializerContext.Default.IEnumerablePgpPrivateKey);
 
-        return _repository.SetAsync(GetAddressKeysCacheKey(addressId), serializedValue, cancellationToken);
+        await repo.SetAsync(GetAddressKeysCacheKey(addressId), serializedValue, cancellationToken).ConfigureAwait(false);
     }
 
     public async ValueTask<IReadOnlyList<PgpPrivateKey>?> TryGetAddressKeysAsync(AddressId addressId, CancellationToken cancellationToken)
     {
-        var serializedValue = await _repository.TryGetAsync(GetAddressKeysCacheKey(addressId), cancellationToken).ConfigureAwait(false);
+        var repo = await _getCacheRepository.Value.ConfigureAwait(false);
+
+        var serializedValue = await repo.TryGetAsync(GetAddressKeysCacheKey(addressId), cancellationToken).ConfigureAwait(false);
 
         return serializedValue is not null
             ? JsonSerializer.Deserialize(serializedValue, SecretsSerializerContext.Default.PgpPrivateKeyArray)

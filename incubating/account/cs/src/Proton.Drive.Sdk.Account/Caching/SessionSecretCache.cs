@@ -4,20 +4,28 @@ namespace Proton.Drive.Sdk.Account.Caching;
 
 internal sealed class SessionSecretCache(ICacheRepository repository) : ISessionSecretCache
 {
-    private readonly ICacheRepository _repository = repository;
-
-    public ValueTask SetAccountKeyPassphraseAsync(string keyId, ReadOnlyMemory<byte> passphrase, CancellationToken cancellationToken)
+    private readonly Lazy<Task<ICacheRepository>> _getCacheRepository = new(async () =>
     {
+        await repository.EnsureValueFormatVersionAsync(AccountCacheValueFormat.Version, CancellationToken.None).ConfigureAwait(false);
+        return repository;
+    });
+
+    public async ValueTask SetAccountKeyPassphraseAsync(string keyId, ReadOnlyMemory<byte> passphrase, CancellationToken cancellationToken)
+    {
+        var repo = await _getCacheRepository.Value.ConfigureAwait(false);
+
         var cacheKey = GetAccountPassphraseCacheKey(keyId);
 
-        return _repository.SetAsync(cacheKey, passphrase, cancellationToken);
+        await repo.SetAsync(cacheKey, passphrase, cancellationToken).ConfigureAwait(false);
     }
 
     public async ValueTask<ReadOnlyMemory<byte>?> TryGetAccountKeyPassphraseAsync(string keyId, CancellationToken cancellationToken)
     {
+        var repo = await _getCacheRepository.Value.ConfigureAwait(false);
+
         var cacheKey = GetAccountPassphraseCacheKey(keyId);
 
-        return await _repository.TryGetAsync(cacheKey, cancellationToken).ConfigureAwait(false);
+        return await repo.TryGetAsync(cacheKey, cancellationToken).ConfigureAwait(false);
     }
 
     private static string GetAccountPassphraseCacheKey(string keyId)
