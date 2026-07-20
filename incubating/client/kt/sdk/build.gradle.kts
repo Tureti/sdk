@@ -213,6 +213,6 @@ tasks.named { name ->
     name.matches("(generate|process).*Proto.*".toRegex())
 }.configureEach { dependsOn("copyProto") }
 
-tasks.named { name -> name == "javaDocReleaseGeneration" }.configureEach {
+tasks.named { name -> name.matches(Regex("javaDoc\\w*ReleaseGeneration")) }.configureEach {
     enabled = false
 }
