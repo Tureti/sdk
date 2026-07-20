@@ -1,12 +1,12 @@
 using System.Buffers;
 using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Proton.Cryptography.Pgp;
 using Proton.Drive.Sdk.Api.Files;
 using Proton.Drive.Sdk.Cryptography;
 using Proton.Drive.Sdk.Http;
+using Proton.Drive.Sdk.Nodes.Cryptography;
 using Proton.Drive.Sdk.Nodes.Upload.Verification;
 using Proton.Drive.Sdk.Serialization;
 using Proton.Sdk.Api;
@@ -275,7 +275,7 @@ internal sealed partial class RevisionWriter
         request.PhotosAttributes = new PhotosAttributesDto
         {
             CaptureTime = captureTime.UtcDateTime,
-            ContentHashDigest = HMACSHA256.HashData(parentHashKey.Span, Encoding.ASCII.GetBytes(Convert.ToHexStringLower(sha1Digest))),
+            ContentHashDigest = NodeCrypto.HashContentDigest(sha1Digest, parentHashKey.Span),
             MainPhotoLinkId = metadata.MainPhotoUid?.LinkId,
             Tags = metadata.Tags?.ToHashSet() ?? [],
         };

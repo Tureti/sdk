@@ -1,5 +1,6 @@
 package me.proton.drive.sdk.internal
 
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import me.proton.drive.sdk.Downloader
@@ -204,6 +205,23 @@ internal class InteropProtonPhotosClient internal constructor(
                     cancellationTokenSource = source,
                 )
             }
+        }
+    }
+
+    override suspend fun findPhotoDuplicates(
+        name: String,
+        generateSha1: suspend () -> ByteArray,
+    ): List<NodeUid> = coroutineScope {
+        val scope = this
+        cancellationCoroutineScope { source ->
+            log(INFO, "findPhotoDuplicates")
+            bridge.findPhotoDuplicates(
+                name = name,
+                clientHandle = handle,
+                cancellationTokenSourceHandle = source.handle,
+                sha1Provider = generateSha1,
+                coroutineScopeProvider = { scope },
+            ).map { NodeUid(it) }
         }
     }
 

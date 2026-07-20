@@ -274,10 +274,17 @@ let cExpectedSha1CallbackForUpload: CCallback = { statePointer, byteArray in
 
     let dest = UnsafeMutableRawPointer(mutating: destBase)
     let outLen = Int(byteArray.length)
-    let n = min(outLen, expectedSHA1.count)
+
+    // The contract is a fixed 20-byte SHA-1 buffer. Fail loudly on a mismatch rather than writing a
+    // partial digest, which would silently produce a wrong content hash.
+    guard outLen >= expectedSHA1.count else {
+        assertionFailure("cExpectedSha1CallbackForUpload: output buffer (\(outLen)) is smaller than the SHA-1 digest (\(expectedSHA1.count))")
+        return
+    }
+
     expectedSHA1.withUnsafeBytes { src in
         if let p = src.baseAddress {
-            dest.copyMemory(from: p, byteCount: n)
+            dest.copyMemory(from: p, byteCount: expectedSHA1.count)
         }
     }
 }

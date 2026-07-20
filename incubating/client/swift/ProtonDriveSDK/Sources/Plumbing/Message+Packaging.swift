@@ -252,6 +252,11 @@ extension Message {
                 $0.payload = .drivePhotosClientLeaveSharedNode(request)
             }
 
+        case let request as Proton_Drive_Sdk_DrivePhotosClientFindDuplicatesRequest:
+            Proton_Drive_Sdk_Request.with {
+                $0.payload = .drivePhotosClientFindDuplicates(request)
+            }
+
             // MARK: - Photo Downloads
 
         case let request as Proton_Drive_Sdk_DrivePhotosClientGetPhotoDownloaderRequest:

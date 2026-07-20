@@ -7,6 +7,7 @@ using Proton.Drive.Sdk.Api.Links;
 using Proton.Drive.Sdk.Serialization;
 using Proton.Sdk;
 using Proton.Sdk.Cryptography;
+using Proton.Sdk.Serialization;
 
 namespace Proton.Drive.Sdk.Nodes.Cryptography;
 
@@ -77,6 +78,15 @@ internal static class NodeCrypto
 
             return HMACSHA256.HashData(parentFolderHashKey, nameBytes);
         }
+    }
+
+    public static byte[] HashContentDigest(ReadOnlyMemory<byte> contentDigest, ReadOnlySpan<byte> parentFolderHashKey)
+    {
+        Span<byte> hexBuffer = stackalloc byte[contentDigest.Length * 2];
+
+        var hexString = contentDigest.Span.ToHexStringLower(hexBuffer);
+
+        return HMACSHA256.HashData(parentFolderHashKey, hexString);
     }
 
     public static Result<DecryptionOutput<ExtendedAttributes?>, ProtonDriveError> DecryptExtendedAttributes(

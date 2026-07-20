@@ -5,6 +5,7 @@ using Proton.Drive.Sdk.Api.Photos;
 using Proton.Drive.Sdk.Caching;
 using Proton.Drive.Sdk.Http;
 using Proton.Drive.Sdk.Nodes;
+using Proton.Drive.Sdk.Nodes.Cryptography;
 using Proton.Drive.Sdk.Nodes.Download;
 using Proton.Drive.Sdk.Nodes.Upload;
 using Proton.Drive.Sdk.Nodes.Upload.Verification;
@@ -19,6 +20,8 @@ namespace Proton.Drive.Sdk;
 
 public sealed class ProtonPhotosClient
 {
+    private const int ActiveLinkState = 1;
+
     public ProtonPhotosClient(
         IHttpClientFactory httpClientFactory,
         IProtonAccountClient accountClient,
@@ -86,10 +89,43 @@ public sealed class ProtonPhotosClient
         return await GetFileUploaderAsync(draftProvider, photosRoot.Uid, size, metadata, cancellationToken).ConfigureAwait(false);
     }
 
-    public ValueTask<IReadOnlyList<string>> FindDuplicatesAsync(string name, Action<string> generateSha1, CancellationToken cancellationToken)
+    public async ValueTask<IReadOnlyList<string>> FindDuplicatesAsync(
+        string name,
+        Func<CancellationToken, ValueTask<ReadOnlyMemory<byte>>> computeContentSha1,
+        CancellationToken cancellationToken)
     {
-        _ = DriveClient;
-        throw new NotImplementedException();
+        var photosRoot = await PhotosNodeOperations.GetOrCreatePhotosFolderAsync(DriveClient, cancellationToken).ConfigureAwait(false);
+
+        var operationData = await FolderOperations.GetOperationDataAsync(DriveClient, photosRoot.Uid, knownShareAndKey: null, cancellationToken)
+            .ConfigureAwait(false);
+
+        var hashKey = operationData.HashKey ?? throw new InvalidOperationException("Photos root hash key not available");
+
+        var nameHash = NodeCrypto.HashNodeName(name, hashKey.Span);
+
+        var response = await PhotosApi.FindDuplicatesAsync(photosRoot.Uid.VolumeId, [nameHash], cancellationToken).ConfigureAwait(false);
+
+        var candidates = response.DuplicateHashes
+            .Where(duplicate =>
+                duplicate.LinkId is not null
+                && duplicate.LinkState == ActiveLinkState
+                && !duplicate.Hash.IsEmpty
+                && !duplicate.ContentHash.IsEmpty)
+            .ToList();
+
+        if (candidates.Count == 0)
+        {
+            return [];
+        }
+
+        // Only compute the (potentially expensive) content hash once we know a name already matches.
+        var contentSha1Digest = await computeContentSha1(cancellationToken).ConfigureAwait(false);
+        var contentHash = NodeCrypto.HashContentDigest(contentSha1Digest, hashKey.Span);
+
+        return candidates
+            .Where(duplicate => duplicate.Hash.Span.SequenceEqual(nameHash) && duplicate.ContentHash.Span.SequenceEqual(contentHash))
+            .Select(duplicate => new NodeUid(photosRoot.Uid.VolumeId, duplicate.LinkId!.Value).ToString())
+            .ToList();
     }
 
     public ValueTask<Node?> GetNodeAsync(NodeUid nodeUid, CancellationToken cancellationToken)

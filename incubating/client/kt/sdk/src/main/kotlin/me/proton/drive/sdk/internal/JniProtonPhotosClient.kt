@@ -5,6 +5,7 @@ import com.google.protobuf.StringValue
 import com.google.protobuf.kotlin.toByteString
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.ProducerScope
+import me.proton.drive.sdk.converter.ListValueConverter
 import me.proton.drive.sdk.converter.NodeConverter
 import me.proton.drive.sdk.converter.NodeResultListResponseConverter
 import me.proton.drive.sdk.entity.ClientCreateRequest
@@ -18,6 +19,7 @@ import proton.drive.sdk.ProtonDriveSdk.HttpRequest
 import proton.drive.sdk.ProtonDriveSdk.HttpResponse
 import proton.drive.sdk.ProtonDriveSdk.MetricEvent
 import proton.drive.sdk.drivePhotosClientCreateRequest
+import proton.drive.sdk.drivePhotosClientFindDuplicatesRequest
 import proton.drive.sdk.drivePhotosClientFreeRequest
 import proton.drive.sdk.httpClient
 import proton.drive.sdk.protonDriveClientOptions
@@ -154,6 +156,34 @@ class JniProtonPhotosClient internal constructor() : JniBaseProtonDriveSdk() {
     ): Unit = executeOnce("leaveSharedNode", UnitResponseCallback) {
         drivePhotosClientLeaveSharedNode = request
     }
+
+    suspend fun findPhotoDuplicates(
+        name: String,
+        clientHandle: Long,
+        cancellationTokenSourceHandle: Long,
+        sha1Provider: suspend () -> ByteArray,
+        coroutineScopeProvider: CoroutineScopeProvider,
+    ): List<String> = executeOnce(
+        clientBuilder = { continuation, asClientResponseCallback ->
+            ProtonDriveSdkNativeClient(
+                name = method("findPhotoDuplicates"),
+                response = ListValueConverter().asCallback(continuation).asClientResponseCallback(),
+                sha1Provider = sha1Provider,
+                logger = internalLogger,
+                coroutineScopeProvider = coroutineScopeProvider,
+            )
+        },
+        requestBuilder = {
+            request {
+                drivePhotosClientFindDuplicates = drivePhotosClientFindDuplicatesRequest {
+                    this.name = name
+                    this.clientHandle = clientHandle
+                    this.cancellationTokenSourceHandle = cancellationTokenSourceHandle
+                    generateSha1Function = ProtonDriveSdkNativeClient.getSha1Pointer()
+                }
+            }
+        },
+    )
 
     fun free(handle: Long) {
         dispatch("free") {

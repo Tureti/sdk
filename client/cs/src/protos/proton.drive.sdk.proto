@@ -921,7 +921,7 @@ enum PhotoTag {
 message DrivePhotosClientFindDuplicatesRequest {
     int64 client_handle = 1;
     string name = 2;
-    int64 generate_sha1_function = 3; // C signature: ByteArray generate_sha1(intptr_t bindings_handle);
+    int64 generate_sha1_function = 3; // C signature: void generate_sha1(intptr_t bindings_handle, ByteArray output_buffer); writes SHA-1 digest bytes into output_buffer (20 bytes).
     int64 cancellation_token_source_handle = 4;
 }
 

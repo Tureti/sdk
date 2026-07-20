@@ -288,16 +288,16 @@ internal static class InteropProtonPhotosClient
 
         var client = Interop.GetFromHandle<ProtonPhotosClient>(request.ClientHandle);
 
-        var duplicates = await client.FindDuplicatesAsync(request.Name, GenerateSha1Action, cancellationToken).ConfigureAwait(false);
+        var sha1Provider = InteropFileUploader.CreateSha1Provider(bindingsHandle, request.GenerateSha1Function);
+
+        var duplicates = await client.FindDuplicatesAsync(
+            request.Name,
+            _ => ValueTask.FromResult(sha1Provider()),
+            cancellationToken).ConfigureAwait(false);
 
         var result = new ListValue();
         result.Values.AddRange(duplicates.Select(Value.ForString));
 
         return result;
-
-        static void GenerateSha1Action(string sha1)
-        {
-            // TODO: Implement SHA1 generation callback
-        }
     }
 }

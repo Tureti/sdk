@@ -44,11 +44,8 @@ public sealed class ForgivingBytesToHexJsonConverter : JsonConverter<ReadOnlyMem
 
         var hexStringBuffer = MemoryPolicy.IsTooLargeForStack<byte>(maxByteCount) ? new byte[maxByteCount] : stackalloc byte[maxByteCount];
 
-        if (!Convert.TryToHexStringLower(value.Span, hexStringBuffer, out var hexStringLength))
-        {
-            throw new JsonException("Could not convert to hex string");
-        }
+        var hexString = value.Span.ToHexStringLower(hexStringBuffer);
 
-        writer.WriteStringValue(hexStringBuffer[..hexStringLength]);
+        writer.WriteStringValue(hexString);
     }
 }

@@ -45,4 +45,19 @@ internal sealed class PhotosApiClient(HttpClient httpClient) : IPhotosApiClient
                 cancellationToken)
             .ConfigureAwait(false);
     }
+
+    public async ValueTask<FindDuplicatesResponse> FindDuplicatesAsync(
+        VolumeId volumeId,
+        IReadOnlyList<ReadOnlyMemory<byte>> nameHashes,
+        CancellationToken cancellationToken)
+    {
+        return await _httpClient
+            .Expecting(PhotosApiSerializerContext.Default.FindDuplicatesResponse)
+            .PostAsync(
+                $"volumes/{volumeId}/photos/duplicates",
+                new FindDuplicatesRequest { NameHashes = nameHashes },
+                PhotosApiSerializerContext.Default.FindDuplicatesRequest,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
 }

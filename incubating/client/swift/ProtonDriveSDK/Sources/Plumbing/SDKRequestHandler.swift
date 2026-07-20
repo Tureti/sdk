@@ -185,6 +185,17 @@ let sdkResponseCallbackWithState: CCallback = { statePointer, responseArray in
             }
             stringResultBox.resume(returning: unpackedValue.value)
 
+        case .value(let value) where value.isA(Google_Protobuf_ListValue.self):
+            let unpackedValue = try Google_Protobuf_ListValue(unpackingAny: value)
+            guard let stringListBox = box as? any Resumable<[String]> else {
+                throw ProtonDriveSDKError(interopError: .wrongSDKResponse(message: "Received unexpected state in the response. We expected Resumable<[String]>, we got \(type(of: box))"))
+            }
+            let strings: [String] = unpackedValue.values.compactMap { protoValue in
+                guard case .stringValue(let string) = protoValue.kind else { return nil }
+                return string
+            }
+            stringListBox.resume(returning: strings)
+
         case .value(let value) where value.isA(Proton_Drive_Sdk_FileThumbnailList.self):
             let unpackedValue = try Proton_Drive_Sdk_FileThumbnailList(unpackingAny: value)
             guard let uploadResultBox = box as? any Resumable<Proton_Drive_Sdk_FileThumbnailList> else {

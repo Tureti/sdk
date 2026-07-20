@@ -143,6 +143,36 @@ extension ProtonPhotosClient {
     }
 }
 
+// MARK: - Duplicates
+
+extension ProtonPhotosClient {
+    public func findPhotoDuplicates(name: String, sha1: Data) async throws -> [SDKNodeUid] {
+        let cancellationTokenSource = try await CancellationTokenSource(logger: logger)
+        defer {
+            cancellationTokenSource.free()
+        }
+
+        let state = FindDuplicatesState(sha1: sha1)
+
+        let request = Proton_Drive_Sdk_DrivePhotosClientFindDuplicatesRequest.with {
+            $0.clientHandle = Int64(clientHandle)
+            $0.name = name
+            $0.generateSha1Function = Int64(ObjectHandle(callback: cGenerateSha1CallbackForFindDuplicates))
+            $0.cancellationTokenSourceHandle = Int64(cancellationTokenSource.handle)
+        }
+
+        let uidStrings: [String] = try await SDKRequestHandler.send(
+            request,
+            state: WeakReference(value: state),
+            scope: .ownerManaged,
+            owner: state,
+            logger: logger
+        )
+
+        return uidStrings.compactMap { SDKNodeUid(sdkCompatibleIdentifier: $0) }
+    }
+}
+
 // MARK: - Download
 extension ProtonPhotosClient {
     public func downloadThumbnails(

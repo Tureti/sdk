@@ -14,4 +14,9 @@ internal interface IPhotosApiClient
     ValueTask<TimelinePhotoListResponse> GetTimelinePhotosAsync(TimelinePhotoListRequest request, CancellationToken cancellationToken);
 
     ValueTask<LinkDetailsResponse> GetDetailsAsync(VolumeId volumeId, IEnumerable<LinkId> linkIds, CancellationToken cancellationToken);
+
+    ValueTask<FindDuplicatesResponse> FindDuplicatesAsync(
+        VolumeId volumeId,
+        IReadOnlyList<ReadOnlyMemory<byte>> nameHashes,
+        CancellationToken cancellationToken);
 }
