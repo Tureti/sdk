@@ -1,5 +1,11 @@
 # Changelog
 
+## cs/v0.20.1 (2026-07-20)
+
+### Features
+- Implement photo duplicate detection
+
+
 ## cs/v0.20.0 (2026-07-20)
 
 ### Features
