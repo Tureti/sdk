@@ -1,5 +1,26 @@
 # Changelog
 
+## cs/v0.20.0 (2026-07-20)
+
+### Features
+- Represent sha1 as byte array not string
+- Add cache format versioning with automatic reset
+- Add eviction logic to in-memory cache
+- Introduce fast path for small file upload
+- Support listing nodes shared with you
+- Support leaving a node shared with you
+- Expose revision state
+- Add node sharing flags
+- Add Swift bindings for more node operations
+- Rename node author to key author
+
+### Bug Fixes
+- Keep cached keys alive on download disposal
+- Align Photos cache initialization with Drive client
+- Preserve media type when renaming without a new one
+- Avoid deserializing non-JSON content when receiving HTTP error responses
+
+
 ## cs/v0.19.0 (2026-06-30)
 
 ### Features
