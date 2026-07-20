@@ -27,6 +27,8 @@ export async function init(configOptions: InitConfig) {
     const { telemetry, metrics, enableMetrics, flush: flushTelemetry } = initTelemetry(config);
     const logger = telemetry.getLogger('cli');
 
+    logger.info(`Version: CLI=${configOptions.appVersion}, SDK=${configOptions.sdkVersion ?? 'unknown'}`);
+
     const openPGPCryptoModule = initOpenPGPCryptoModule();
     const credentials = initCredentials(config, logger);
     const { auth, addresses, srp, httpClient, apiClient } = await initApi(config, credentials, logger, CryptoProxy);
