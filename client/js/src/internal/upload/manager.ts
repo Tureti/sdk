@@ -5,6 +5,7 @@ import { NodeWithSameNameExistsValidationError, ValidationError } from '../../er
 import { Logger, ProtonDriveTelemetry, ThumbnailType, UploadMetadata } from '../../interface';
 import { reduceSizePrecision } from '../../telemetry';
 import { ErrorCode } from '../apiService';
+import { getErrorMessage } from '../errors';
 import { generateFileExtendedAttributes } from '../nodes';
 import { makeNodeUid, splitNodeUid } from '../uids';
 import { UploadAPIService } from './apiService';
@@ -412,13 +413,16 @@ export class UploadManager {
             // received. In this case, API service automatically retries the
             // request. If the first attempt passed, it will fail on the second
             // attempt. We need to check if the revision was actually committed.
+            let isRevisionUploaded;
             try {
-                const isRevisionUploaded = await this.apiService.isRevisionUploaded(nodeRevisionDraft.nodeRevisionUid);
-                if (!isRevisionUploaded) {
-                    throw error;
-                }
-            } catch {
+                isRevisionUploaded = await this.apiService.isRevisionUploaded(nodeRevisionDraft.nodeRevisionUid);
+            } catch (catchError: unknown) {
+                this.logger.warn(`Failed to check if revision was committed: ${getErrorMessage(catchError)}`);
                 throw error; // Throw original error, not the checking one.
+            }
+            if (!isRevisionUploaded) {
+                this.logger.debug(`Revision was not committed`);
+                throw error;
             }
             this.logger.warn(`Node commit failed but node was committed successfully ${nodeRevisionDraft.nodeUid}`);
         }
