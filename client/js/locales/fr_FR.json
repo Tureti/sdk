@@ -162,6 +162,9 @@
       "No available name found": [
         "Aucun nom disponible trouvé"
       ],
+      "No data to upload received": [
+        "Aucune donnée à importer n'a été reçue."
+      ],
       "Node has no thumbnail": [
         "Le nœud n'a pas de vignette."
       ],

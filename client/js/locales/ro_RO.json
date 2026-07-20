@@ -163,6 +163,9 @@
       "No available name found": [
         "Nu a fost găsit niciun nume disponibil."
       ],
+      "No data to upload received": [
+        "Nu s-au primit date pentru încărcare"
+      ],
       "Node has no thumbnail": [
         "Nodul nu are miniatură."
       ],

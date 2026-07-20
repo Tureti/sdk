@@ -162,6 +162,9 @@
       "No available name found": [
         "Kullanılabilecek bir ad bulunamadı"
       ],
+      "No data to upload received": [
+        "Yüklenebilecek bir veri alınmadı"
+      ],
       "Node has no thumbnail": [
         "Düğümün küçük görseli yok"
       ],

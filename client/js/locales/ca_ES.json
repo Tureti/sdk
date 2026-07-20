@@ -162,6 +162,9 @@
       "No available name found": [
         "No s'ha trobat cap nom disponible"
       ],
+      "No data to upload received": [
+        "No s'ha rebut cap dada per carregar"
+      ],
       "Node has no thumbnail": [
         "El node no té miniatura"
       ],

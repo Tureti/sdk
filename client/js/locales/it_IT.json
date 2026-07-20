@@ -159,6 +159,9 @@
       "No available name found": [
         "Non è stato trovato nessun nome disponibile"
       ],
+      "No data to upload received": [
+        "Non sono stati ricevuti dati da caricare"
+      ],
       "Node has no thumbnail": [
         "Il nodo non ha alcuna miniatura"
       ],

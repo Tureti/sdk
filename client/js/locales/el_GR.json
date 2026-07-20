@@ -162,6 +162,9 @@
       "No available name found": [
         "Δεν βρέθηκε διαθέσιμο όνομα"
       ],
+      "No data to upload received": [
+        "Δεν ελήφθησαν δεδομένα για μεταφόρτωση"
+      ],
       "Node has no thumbnail": [
         "Ο κόμβος δεν έχει μικρογραφία"
       ],
