@@ -2,7 +2,7 @@
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <GoCryptoVersion>0.29.4</GoCryptoVersion>
-    <RustCryptoVersion>0.29.4-rust</RustCryptoVersion>
+    <RustCryptoVersion>0.29.4-rust.2</RustCryptoVersion>
     <!-- Default to Go crypto backend -->
     <CryptoBackend Condition="'$(CryptoBackend)' == ''">go</CryptoBackend>
     <ProtonCryptographyVersion Condition="'$(CryptoBackend)' == 'go'">$(GoCryptoVersion)</ProtonCryptographyVersion>
