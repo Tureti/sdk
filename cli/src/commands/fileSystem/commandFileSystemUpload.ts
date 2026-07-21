@@ -34,7 +34,7 @@ const SUPPORTED_REMOTE_PATH_TYPES = [PathType.MyFiles, PathType.Devices, PathTyp
  * invisible to them and can be garbage collected as soon as the upload
  * completes.
  */
-function createUploadProgressCallback(
+export function createUploadProgressCallback(
     fileSize: number,
     progressTracker?: TransferProgressItem,
 ): ((uploadedBytes: number) => void) | undefined {
@@ -222,32 +222,14 @@ export class CommandFileSystemUpload implements Command {
         ctx: UploadContext,
         item: QueueItemFile<{ parentNode: NodeEntity }>,
     ): Promise<number | false> {
-        const expectedSha1 = await getSha1(item.localPath);
-        const file = Bun.file(item.localPath);
-        const metadata = {
-            mediaType: getLocalFileMediaType(ctx.logger, item.localPath),
-            expectedSize: file.size,
-            expectedSha1,
-            modificationTime: file.lastModified && file.lastModified !== 0 ? new Date(file.lastModified) : undefined,
-            // additionalMetadata: TODO Implement before reusing for photos.
-        };
+        const { file, metadata, thumbnails } = await getFileMetadata(
+            ctx,
+            item,
+            getLocalFileMediaType(ctx.logger, item.localPath),
+        );
 
         let name = item.baseName;
         let newRevisionForNodeUid: string | undefined;
-
-        let thumbnails: Thumbnail[] = [];
-        if (!ctx.skipThumbnails) {
-            try {
-                thumbnails = await generateThumbnails(metadata.mediaType || '', item.localPath);
-            } catch (error: unknown) {
-                const message = error instanceof Error ? error.message : String(error);
-                throw new ValidationError(
-                    `Failed to generate thumbnails (use --skip-thumbnails to upload without thumbnails): ${message}`,
-                    undefined,
-                    { cause: error },
-                );
-            }
-        }
 
         while (true) {
             const progressTracker = ctx.progress?.trackItem(item.baseName, file.size);
@@ -305,4 +287,42 @@ export class CommandFileSystemUpload implements Command {
             }
         }
     }
+}
+
+export async function getFileMetadata(
+    ctx: {
+        skipThumbnails: boolean;
+    },
+    item: QueueItemFile<{ parentNode: NodeEntity }>,
+    mediaType: string,
+) {
+    const expectedSha1 = await getSha1(item.localPath);
+    const file = Bun.file(item.localPath);
+    const metadata = {
+        mediaType,
+        expectedSize: file.size,
+        expectedSha1,
+        modificationTime: file.lastModified && file.lastModified !== 0 ? new Date(file.lastModified) : undefined,
+        // additionalMetadata: TODO
+    };
+
+    let thumbnails: Thumbnail[] = [];
+    if (!ctx.skipThumbnails) {
+        try {
+            thumbnails = await generateThumbnails(metadata.mediaType || '', item.localPath);
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            throw new ValidationError(
+                `Failed to generate thumbnails (use --skip-thumbnails to upload without thumbnails): ${message}`,
+                undefined,
+                { cause: error },
+            );
+        }
+    }
+
+    return {
+        file,
+        metadata,
+        thumbnails,
+    };
 }
