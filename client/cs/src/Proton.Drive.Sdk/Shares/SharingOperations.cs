@@ -1,6 +1,8 @@
 using System.Runtime.CompilerServices;
+using Proton.Drive.Sdk.Api.Links;
 using Proton.Drive.Sdk.Api.Shares;
 using Proton.Drive.Sdk.Nodes;
+using Proton.Drive.Sdk.Volumes;
 
 namespace Proton.Drive.Sdk.Shares;
 
@@ -10,11 +12,40 @@ internal static class SharingOperations
     private static readonly ShareTargetType[] DriveShareTargetTypes =
         [ShareTargetType.Folder, ShareTargetType.File, ShareTargetType.ProtonVendor];
 
+    public static async IAsyncEnumerable<NodeUid> EnumerateSharedNodeUidsAsync(
+        ProtonDriveClient client,
+        Func<ProtonDriveClient, CancellationToken, ValueTask<VolumeId?>> resolveVolumeId,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var volumeId = await resolveVolumeId(client, cancellationToken).ConfigureAwait(false);
+        if (volumeId is null)
+        {
+            // Nothing to enumerate if the volume doesn't exist.
+            yield break;
+        }
+
+        var anchorId = default(LinkId?);
+        var mustTryMoreResults = true;
+
+        while (mustTryMoreResults)
+        {
+            var response = await client.Api.Shares.GetSharedByMeAsync(volumeId.Value, anchorId, cancellationToken).ConfigureAwait(false);
+
+            foreach (var link in response.Links)
+            {
+                yield return new NodeUid(volumeId.Value, link.LinkId);
+            }
+
+            anchorId = response.AnchorId;
+            mustTryMoreResults = response.More && anchorId is not null;
+        }
+    }
+
     public static async IAsyncEnumerable<NodeUid> EnumerateSharedWithMeNodeUidsAsync(
         ProtonDriveClient client,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        string? anchorId = null;
+        var anchorId = default(LinkId?);
         var mustTryMoreResults = true;
 
         while (mustTryMoreResults)
@@ -32,7 +63,7 @@ internal static class SharingOperations
             }
 
             anchorId = response.AnchorId;
-            mustTryMoreResults = response.More && !string.IsNullOrEmpty(anchorId);
+            mustTryMoreResults = response.More && anchorId is not null;
         }
     }
 

@@ -244,6 +244,11 @@ public sealed class ProtonDriveClient
         return NodeOperations.RenameAsync(this, uid, newName, newMediaType, cancellationToken);
     }
 
+    public IAsyncEnumerable<NodeUid> EnumerateSharedNodeUidsAsync(CancellationToken cancellationToken = default)
+    {
+        return SharingOperations.EnumerateSharedNodeUidsAsync(this, VolumeOperations.TryGetMainVolumeIdAsync, cancellationToken);
+    }
+
     public IAsyncEnumerable<NodeUid> EnumerateSharedWithMeNodeUidsAsync(CancellationToken cancellationToken = default)
     {
         return SharingOperations.EnumerateSharedWithMeNodeUidsAsync(this, cancellationToken);

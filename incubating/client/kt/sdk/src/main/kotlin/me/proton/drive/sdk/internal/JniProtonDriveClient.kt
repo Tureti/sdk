@@ -177,6 +177,20 @@ class JniProtonDriveClient internal constructor() : JniBaseProtonDriveSdk() {
         driveClientEnumerateTrash = request
     }
 
+    suspend fun enumerateSharedNodeUids(
+        coroutineScope: ProducerScope<NodeUid>,
+        request: ProtonDriveSdk.DriveClientEnumerateSharedNodeUidsRequest,
+        yield: suspend (StringValue) -> Unit,
+    ): Unit = executeEnumerate(
+        name = "enumerateSharedNodeUids",
+        callback = UnitResponseCallback,
+        yield = yield,
+        parser = StringValue::parseFrom,
+        coroutineScopeProvider = { coroutineScope }
+    ) {
+        driveClientEnumerateSharedNodeUids = request
+    }
+
     suspend fun enumerateSharedWithMeNodeUids(
         coroutineScope: ProducerScope<NodeUid>,
         request: ProtonDriveSdk.DriveClientEnumerateSharedWithMeNodeUidsRequest,
