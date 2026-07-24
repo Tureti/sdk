@@ -27,7 +27,18 @@ export type QueueItemFile<RemoteDataType> = QueueItemBase<RemoteDataType> & {
 export type QueueItem<RemoteDataType> = QueueItemDirectory<RemoteDataType> | QueueItemFile<RemoteDataType>;
 
 type TransferQueueHandlers<RemoteDataType> = {
-    onDirectory: (item: QueueItemDirectory<RemoteDataType>) => Promise<boolean>;
+    /**
+     * Handler for directory items. Returns:
+     * * `true` if the directory should be reported as processed successfully,
+     * * `false` if the directory should be reported as skipped,
+     * * or `undefined` if the directory should not be reported at all.
+     */
+    onDirectory: (item: QueueItemDirectory<RemoteDataType>) => Promise<boolean | undefined>;
+    /**
+     * Handler for file items. Returns:
+     * * The number of bytes transferred if the file was processed successfully,
+     * * `false` if the file should be reported as skipped,
+     */
     startFile: (item: QueueItemFile<RemoteDataType>) => Promise<number | false>;
 };
 
@@ -49,9 +60,9 @@ class TransferQueue<RemoteDataType> {
             if (item.kind === 'directory') {
                 try {
                     const completed = await this.handlers.onDirectory(item);
-                    if (completed) {
+                    if (completed === true) {
                         this.recordSuccess(0);
-                    } else {
+                    } else if (completed === false) {
                         this.recordSkip(item);
                     }
                 } catch (error: unknown) {

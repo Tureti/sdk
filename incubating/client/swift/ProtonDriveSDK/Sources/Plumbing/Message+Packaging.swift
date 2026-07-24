@@ -86,6 +86,11 @@ extension Message {
                 $0.payload = .driveClientTrashNodes(request)
             }
 
+        case let request as Proton_Drive_Sdk_DriveClientMoveNodesRequest:
+            Proton_Drive_Sdk_Request.with {
+                $0.payload = .driveClientMoveNodes(request)
+            }
+
         case let request as Proton_Drive_Sdk_DriveClientDeleteNodesRequest:
             Proton_Drive_Sdk_Request.with {
                 $0.payload = .driveClientDeleteNodes(request)
@@ -129,6 +134,11 @@ extension Message {
         case let request as Proton_Drive_Sdk_DriveClientEnumerateSharedWithMeNodeUidsRequest:
             Proton_Drive_Sdk_Request.with {
                 $0.payload = .driveClientEnumerateSharedWithMeNodeUids(request)
+            }
+
+        case let request as Proton_Drive_Sdk_DriveClientEnumerateSharedNodeUidsRequest:
+            Proton_Drive_Sdk_Request.with {
+                $0.payload = .driveClientEnumerateSharedNodeUids(request)
             }
 
         case let request as Proton_Drive_Sdk_DriveClientEnumerateThumbnailsRequest:
@@ -255,6 +265,11 @@ extension Message {
         case let request as Proton_Drive_Sdk_DrivePhotosClientFindDuplicatesRequest:
             Proton_Drive_Sdk_Request.with {
                 $0.payload = .drivePhotosClientFindDuplicates(request)
+            }
+
+        case let request as Proton_Drive_Sdk_DrivePhotosClientEnumerateSharedNodeUidsRequest:
+            Proton_Drive_Sdk_Request.with {
+                $0.payload = .drivePhotosClientEnumerateSharedNodeUids(request)
             }
 
             // MARK: - Photo Downloads

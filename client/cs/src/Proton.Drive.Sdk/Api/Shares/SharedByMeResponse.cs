@@ -4,9 +4,9 @@ using Proton.Sdk.Api;
 
 namespace Proton.Drive.Sdk.Api.Shares;
 
-internal sealed class SharedWithMeResponse : ApiResponse
+internal sealed class SharedByMeResponse : ApiResponse
 {
-    public required IReadOnlyList<SharedWithMeLinkDto> Links { get; init; }
+    public required IReadOnlyList<SharedByMeLinkDto> Links { get; init; }
 
     [JsonPropertyName("AnchorID")]
     public LinkId? AnchorId { get; init; }

@@ -33,6 +33,7 @@ import proton.drive.sdk.driveClientDeleteNodesRequest
 import proton.drive.sdk.driveClientEmptyTrashRequest
 import proton.drive.sdk.driveClientEnumerateDevicesRequest
 import proton.drive.sdk.driveClientEnumerateFolderChildrenRequest
+import proton.drive.sdk.driveClientEnumerateSharedNodeUidsRequest
 import proton.drive.sdk.driveClientEnumerateSharedWithMeNodeUidsRequest
 import proton.drive.sdk.driveClientEnumerateThumbnailsRequest
 import proton.drive.sdk.driveClientEnumerateTrashRequest
@@ -40,6 +41,7 @@ import proton.drive.sdk.driveClientGetAvailableNameRequest
 import proton.drive.sdk.driveClientGetMyFilesFolderRequest
 import proton.drive.sdk.driveClientGetNodeRequest
 import proton.drive.sdk.driveClientLeaveSharedNodeRequest
+import proton.drive.sdk.driveClientMoveNodesRequest
 import proton.drive.sdk.driveClientRenameDeviceRequest
 import proton.drive.sdk.driveClientRenameRequest
 import proton.drive.sdk.driveClientRestoreNodesRequest
@@ -105,6 +107,21 @@ internal class InteropProtonDriveClient internal constructor(
                 cancellationTokenSourceHandle = source.handle
             }
         )
+    }
+
+    override suspend fun moveNodes(
+        nodeUids: List<NodeUid>,
+        newParentFolderUid: NodeUid,
+    ): List<NodeResultPair> = cancellationCoroutineScope { source ->
+        log(INFO, "moveNodes(${nodeUids.size} nodes)")
+        bridge.moveNodes(
+            driveClientMoveNodesRequest {
+                this.nodeUids += nodeUids.map { it.value }
+                this.newParentFolderUid = newParentFolderUid.value
+                clientHandle = handle
+                cancellationTokenSourceHandle = source.handle
+            }
+        ).toEntity()
     }
 
     override suspend fun createFolder(
@@ -231,6 +248,23 @@ internal class InteropProtonDriveClient internal constructor(
                 cancellationTokenSourceHandle = source.handle
             }
         )
+    }
+
+    override fun enumerateSharedNodeUids(): Flow<NodeUid> = channelFlow {
+        log(DEBUG, "enumerateSharedNodeUids")
+        cancellationCoroutineScope { source ->
+            bridge.enumerateSharedNodeUids(
+                coroutineScope = this@channelFlow,
+                request = driveClientEnumerateSharedNodeUidsRequest {
+                    clientHandle = handle
+                    cancellationTokenSourceHandle = source.handle
+                    yieldAction = ProtonDriveSdkNativeClient.getYieldPointer()
+                },
+                yield = { nodeUid ->
+                    send(NodeUid(nodeUid.value))
+                }
+            )
+        }
     }
 
     override fun enumerateSharedWithMeNodeUids(): Flow<NodeUid> = channelFlow {

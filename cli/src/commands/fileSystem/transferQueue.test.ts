@@ -231,6 +231,28 @@ describe('TransferQueue (via UploadQueue.processQueue)', () => {
         });
     });
 
+    it('does not record directory when onDirectory returns undefined', async () => {
+        const summary = new TransferSummary('upload');
+        const onDirectory = jest.fn(async (): Promise<boolean | undefined> => undefined);
+        const startFile = jest.fn(async () => 100);
+        const q = new SeededUploadQueue(getMockLogger(), summary, { onDirectory, startFile });
+        q.seed([
+            { kind: 'directory', localPath: '/dir', baseName: 'dir', parentNode: parent },
+            { kind: 'file', localPath: '/f', baseName: 'f', parentNode: parent },
+        ]);
+        await q.processQueue();
+        expect(onDirectory).toHaveBeenCalledTimes(1);
+        expect(startFile).toHaveBeenCalledTimes(1);
+        expect(summary.failureCount).toBe(0);
+        expect(summary.formatProgressLine()).toBe('Uploaded 1 | Queued 0');
+        expect(summaryAsJson(summary)).toMatchObject({
+            transferredItems: 1,
+            transferredBytes: 100,
+            failedItems: 0,
+            skippedItems: 0,
+        });
+    });
+
     it('waits for all in-flight file transfers before finishing', async () => {
         const pending: Array<() => void> = [];
         const onDirectory = jest.fn(async () => true);

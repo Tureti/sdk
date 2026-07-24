@@ -151,6 +151,20 @@ class JniProtonPhotosClient internal constructor() : JniBaseProtonDriveSdk() {
         drivePhotosClientEmptyTrash = request
     }
 
+    suspend fun enumerateSharedNodeUids(
+        coroutineScope: ProducerScope<NodeUid>,
+        request: ProtonDriveSdk.DrivePhotosClientEnumerateSharedNodeUidsRequest,
+        yield: suspend (StringValue) -> Unit,
+    ): Unit = executeEnumerate(
+            name = "enumerateSharedNodeUids",
+            callback = UnitResponseCallback,
+            yield = yield,
+            parser = StringValue::parseFrom,
+            coroutineScopeProvider = { coroutineScope }
+        ) {
+            drivePhotosClientEnumerateSharedNodeUids = request
+        }
+
     suspend fun leaveSharedNode(
         request: ProtonDriveSdk.DrivePhotosClientLeaveSharedNodeRequest,
     ): Unit = executeOnce("leaveSharedNode", UnitResponseCallback) {

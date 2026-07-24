@@ -1,5 +1,7 @@
+using Proton.Drive.Sdk.Api.Links;
 using Proton.Drive.Sdk.Serialization;
 using Proton.Drive.Sdk.Shares;
+using Proton.Drive.Sdk.Volumes;
 using Proton.Sdk.Api;
 using Proton.Sdk.Api.Http;
 
@@ -32,13 +34,22 @@ internal sealed class SharesApiClient(HttpClient httpClient) : ISharesApiClient
             .GetAsync($"shares{queryParameters}", cancellationToken).ConfigureAwait(false);
     }
 
-    public async ValueTask<SharedWithMeResponse> GetSharedWithMeAsync(string? anchorId, CancellationToken cancellationToken)
+    public async ValueTask<SharedWithMeResponse> GetSharedWithMeAsync(LinkId? anchorId, CancellationToken cancellationToken)
     {
-        var queryParameters = !string.IsNullOrEmpty(anchorId) ? $"?AnchorID={anchorId}" : string.Empty;
+        var queryParameters = anchorId is not null ? $"?AnchorID={anchorId}" : string.Empty;
 
         return await _httpClient
             .Expecting(DriveApiSerializerContext.Default.SharedWithMeResponse)
             .GetAsync($"v2/sharedwithme{queryParameters}", cancellationToken).ConfigureAwait(false);
+    }
+
+    public async ValueTask<SharedByMeResponse> GetSharedByMeAsync(VolumeId volumeId, LinkId? anchorId, CancellationToken cancellationToken)
+    {
+        var queryParameters = anchorId is not null ? $"?AnchorID={anchorId}" : string.Empty;
+
+        return await _httpClient
+            .Expecting(DriveApiSerializerContext.Default.SharedByMeResponse)
+            .GetAsync($"v2/volumes/{volumeId}/shares{queryParameters}", cancellationToken).ConfigureAwait(false);
     }
 
     public async ValueTask RemoveMemberAsync(ShareId shareId, ShareMembershipId memberId, CancellationToken cancellationToken)

@@ -343,4 +343,29 @@ extension ProtonPhotosClient {
 
         let _: Void = try await SDKRequestHandler.send(request, logger: logger)
     }
+
+    /// Enumerates the UIDs of all photo nodes that the current user has shared by them.
+    ///
+    /// The results are not sorted and the order is not guaranteed.
+    public func enumerateSharedNodeUids(onNodeUidEnumerated: @escaping NodeUidCallback) async throws {
+        let cancellationTokenSource = try await CancellationTokenSource(logger: logger)
+        defer {
+            cancellationTokenSource.free()
+        }
+
+        let callbackState = NodeUidEnumerationCallbackWrapper(callback: onNodeUidEnumerated)
+        let request = Proton_Drive_Sdk_DrivePhotosClientEnumerateSharedNodeUidsRequest.with {
+            $0.clientHandle = Int64(clientHandle)
+            $0.yieldAction = Int64(ObjectHandle(callback: cNodeUidEnumerationCallback))
+            $0.cancellationTokenSourceHandle = Int64(cancellationTokenSource.handle)
+        }
+
+        let _: Void = try await SDKRequestHandler.send(
+            request,
+            state: WeakReference(value: callbackState),
+            scope: .ownerManaged,
+            owner: callbackState,
+            logger: logger
+        )
+    }
 }

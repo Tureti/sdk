@@ -13,6 +13,7 @@ import { CommandFileSystemRename } from './fileSystem/commandFileSystemRename';
 import { CommandFileSystemRestore } from './fileSystem/commandFileSystemRestore';
 import { CommandFileSystemTrash } from './fileSystem/commandFileSystemTrash';
 import { CommandFileSystemUpload } from './fileSystem/commandFileSystemUpload';
+import { CommandPhotosUpload } from './photos/commandPhotosUpload';
 import { CommandInvitationAccept } from './sharing/commandInvitationAccept';
 import { CommandInvitationList } from './sharing/commandInvitationList';
 import { CommandInvitationReject } from './sharing/commandInvitationReject';
@@ -38,6 +39,7 @@ export const COMMANDS = applyDefaultCliOptions([
     new CommandFileSystemRestore(),
     new CommandFileSystemDelete(),
     new CommandFileSystemEmptyTrash(),
+    new CommandPhotosUpload(),
     new CommandSharingStatus(),
     new CommandSharingInvite(),
     new CommandSharingLeave(),

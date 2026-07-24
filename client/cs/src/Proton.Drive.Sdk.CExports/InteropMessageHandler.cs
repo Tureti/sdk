@@ -63,6 +63,9 @@ internal static class InteropMessageHandler
                 Request.PayloadOneofCase.DriveClientTrashNodes
                     => await InteropProtonDriveClient.HandleTrashNodesAsync(request.DriveClientTrashNodes).ConfigureAwait(false),
 
+                Request.PayloadOneofCase.DriveClientMoveNodes
+                    => await InteropProtonDriveClient.HandleMoveNodesAsync(request.DriveClientMoveNodes).ConfigureAwait(false),
+
                 Request.PayloadOneofCase.DriveClientDeleteNodes
                     => await InteropProtonDriveClient.HandleDeleteNodesAsync(request.DriveClientDeleteNodes).ConfigureAwait(false),
 
@@ -103,6 +106,11 @@ internal static class InteropMessageHandler
                 Request.PayloadOneofCase.DriveClientEnumerateSharedWithMeNodeUids
                     => await InteropProtonDriveClient.HandleEnumerateSharedWithMeNodeUidsAsync(
                         request.DriveClientEnumerateSharedWithMeNodeUids,
+                        bindingsHandle).ConfigureAwait(false),
+
+                Request.PayloadOneofCase.DriveClientEnumerateSharedNodeUids
+                    => await InteropProtonDriveClient.HandleEnumerateSharedNodeUidsAsync(
+                        request.DriveClientEnumerateSharedNodeUids,
                         bindingsHandle).ConfigureAwait(false),
 
                 Request.PayloadOneofCase.DriveClientEnumerateDevices
@@ -233,6 +241,11 @@ internal static class InteropMessageHandler
 
                 Request.PayloadOneofCase.DrivePhotosClientLeaveSharedNode
                     => await InteropProtonPhotosClient.HandleLeaveSharedNodeAsync(request.DrivePhotosClientLeaveSharedNode).ConfigureAwait(false),
+
+                Request.PayloadOneofCase.DrivePhotosClientEnumerateSharedNodeUids
+                    => await InteropProtonPhotosClient.HandleEnumerateSharedNodeUidsAsync(
+                        request.DrivePhotosClientEnumerateSharedNodeUids,
+                        bindingsHandle).ConfigureAwait(false),
 
                 Request.PayloadOneofCase.None or _
                     => throw new ArgumentException($"Unknown request type: {request.PayloadCase}", nameof(requestBytes)),

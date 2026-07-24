@@ -181,7 +181,7 @@ internal static class InteropProtonDriveClient
 
     public static async ValueTask<IMessage?> HandleEnumerateThumbnailsAsync(DriveClientEnumerateThumbnailsRequest request, nint bindingsHandle)
     {
-        var yieldFunction = new InteropAction<nint, InteropArray<byte>>(request.YieldAction);
+        var yieldAction = new InteropAction<nint, InteropArray<byte>>(request.YieldAction);
         var cancellationToken = Interop.GetCancellationToken(request.CancellationTokenSourceHandle);
 
         var client = Interop.GetFromHandle<ProtonDriveClient>(request.ClientHandle);
@@ -204,7 +204,7 @@ internal static class InteropProtonDriveClient
                 thumbnail.Error = error.ToInterop();
             }
 
-            yieldFunction.InvokeWithMessage(bindingsHandle, thumbnail);
+            yieldAction.InvokeWithMessage(bindingsHandle, thumbnail);
         }
 
         return null;
@@ -212,14 +212,14 @@ internal static class InteropProtonDriveClient
 
     public static async ValueTask<IMessage?> HandleEnumerateFolderChildrenAsync(DriveClientEnumerateFolderChildrenRequest request, nint bindingsHandle)
     {
-        var yieldFunction = new InteropAction<nint, InteropArray<byte>>(request.YieldAction);
+        var yieldAction = new InteropAction<nint, InteropArray<byte>>(request.YieldAction);
         var cancellationToken = Interop.GetCancellationToken(request.CancellationTokenSourceHandle);
 
         var client = Interop.GetFromHandle<ProtonDriveClient>(request.ClientHandle);
 
         await foreach (var nodeUid in client.EnumerateFolderChildrenNodeUidsAsync(NodeUid.Parse(request.FolderUid), cancellationToken).ConfigureAwait(false))
         {
-            yieldFunction.InvokeWithMessage(bindingsHandle, new StringValue { Value = nodeUid.ToString() });
+            yieldAction.InvokeWithMessage(bindingsHandle, new StringValue { Value = nodeUid.ToString() });
         }
 
         return null;
@@ -283,6 +283,20 @@ internal static class InteropProtonDriveClient
         return results.ToInterop();
     }
 
+    public static async ValueTask<IMessage> HandleMoveNodesAsync(DriveClientMoveNodesRequest request)
+    {
+        var cancellationToken = Interop.GetCancellationToken(request.CancellationTokenSourceHandle);
+
+        var client = Interop.GetFromHandle<ProtonDriveClient>(request.ClientHandle);
+
+        var results = await client.MoveNodesAsync(
+            request.NodeUids.Select(NodeUid.Parse),
+            NodeUid.Parse(request.NewParentFolderUid),
+            cancellationToken).ConfigureAwait(false);
+
+        return results.ToInterop();
+    }
+
     public static async ValueTask<IMessage> HandleDeleteNodesAsync(DriveClientDeleteNodesRequest request)
     {
         var cancellationToken = Interop.GetCancellationToken(request.CancellationTokenSourceHandle);
@@ -311,14 +325,14 @@ internal static class InteropProtonDriveClient
 
     public static async ValueTask<IMessage?> HandleEnumerateTrashAsync(DriveClientEnumerateTrashRequest request, nint bindingsHandle)
     {
-        var yieldFunction = new InteropAction<nint, InteropArray<byte>>(request.YieldAction);
+        var yieldAction = new InteropAction<nint, InteropArray<byte>>(request.YieldAction);
         var cancellationToken = Interop.GetCancellationToken(request.CancellationTokenSourceHandle);
 
         var client = Interop.GetFromHandle<ProtonDriveClient>(request.ClientHandle);
 
         await foreach (var nodeUid in client.EnumerateTrashNodeUidsAsync(cancellationToken).ConfigureAwait(false))
         {
-            yieldFunction.InvokeWithMessage(bindingsHandle, new StringValue { Value = nodeUid.ToString() });
+            yieldAction.InvokeWithMessage(bindingsHandle, new StringValue { Value = nodeUid.ToString() });
         }
 
         return null;
@@ -340,14 +354,31 @@ internal static class InteropProtonDriveClient
         DriveClientEnumerateSharedWithMeNodeUidsRequest request,
         nint bindingsHandle)
     {
-        var yieldFunction = new InteropAction<nint, InteropArray<byte>>(request.YieldAction);
+        var yieldAction = new InteropAction<nint, InteropArray<byte>>(request.YieldAction);
         var cancellationToken = Interop.GetCancellationToken(request.CancellationTokenSourceHandle);
 
         var client = Interop.GetFromHandle<ProtonDriveClient>(request.ClientHandle);
 
         await foreach (var nodeUid in client.EnumerateSharedWithMeNodeUidsAsync(cancellationToken).ConfigureAwait(false))
         {
-            yieldFunction.InvokeWithMessage(bindingsHandle, new StringValue { Value = nodeUid.ToString() });
+            yieldAction.InvokeWithMessage(bindingsHandle, new StringValue { Value = nodeUid.ToString() });
+        }
+
+        return null;
+    }
+
+    public static async ValueTask<IMessage?> HandleEnumerateSharedNodeUidsAsync(
+        DriveClientEnumerateSharedNodeUidsRequest request,
+        nint bindingsHandle)
+    {
+        var yieldAction = new InteropAction<nint, InteropArray<byte>>(request.YieldAction);
+        var cancellationToken = Interop.GetCancellationToken(request.CancellationTokenSourceHandle);
+
+        var client = Interop.GetFromHandle<ProtonDriveClient>(request.ClientHandle);
+
+        await foreach (var nodeUid in client.EnumerateSharedNodeUidsAsync(cancellationToken).ConfigureAwait(false))
+        {
+            yieldAction.InvokeWithMessage(bindingsHandle, new StringValue { Value = nodeUid.ToString() });
         }
 
         return null;
@@ -377,14 +408,14 @@ internal static class InteropProtonDriveClient
 
     public static async ValueTask<IMessage?> HandleEnumerateDevicesAsync(DriveClientEnumerateDevicesRequest request, nint bindingsHandle)
     {
-        var yieldFunction = new InteropAction<nint, InteropArray<byte>>(request.YieldAction);
+        var yieldAction = new InteropAction<nint, InteropArray<byte>>(request.YieldAction);
         var cancellationToken = Interop.GetCancellationToken(request.CancellationTokenSourceHandle);
 
         var client = Interop.GetFromHandle<ProtonDriveClient>(request.ClientHandle);
 
         await foreach (var device in client.EnumerateDevicesAsync(cancellationToken).ConfigureAwait(false))
         {
-            yieldFunction.InvokeWithMessage(bindingsHandle, device.ToInterop());
+            yieldAction.InvokeWithMessage(bindingsHandle, device.ToInterop());
         }
 
         return null;
