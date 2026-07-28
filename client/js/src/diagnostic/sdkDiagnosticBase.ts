@@ -126,7 +126,7 @@ export class SDKDiagnosticBase {
         yield* this.verifyAuthor(node.keyAuthor, 'key', node, expectedStructure);
         yield* this.verifyAuthor(node.nameAuthor, 'name', node, expectedStructure);
 
-        const activeRevision = node.activeRevision?.ok ? node.activeRevision.value : undefined;
+        const activeRevision = node.activeRevision;
         if (activeRevision) {
             yield* this.verifyAuthor(activeRevision.contentAuthor, 'content', node, expectedStructure);
         }
@@ -194,7 +194,7 @@ export class SDKDiagnosticBase {
         node: NodeEntity,
         expectedStructure?: ExpectedTreeNode,
     ): AsyncGenerator<DiagnosticResult> {
-        const activeRevision = node.activeRevision?.ok ? node.activeRevision.value : undefined;
+        const activeRevision = node.activeRevision;
 
         const isNodeWithContent = this.isNodeWithContent(node);
 
@@ -277,7 +277,7 @@ export class SDKDiagnosticBase {
         if (!this.isNodeWithContent(node)) {
             return;
         }
-        const activeRevision = node.activeRevision?.ok ? node.activeRevision.value : undefined;
+        const activeRevision = node.activeRevision;
         if (!activeRevision) {
             yield {
                 type: 'content_file_missing_revision',
@@ -345,7 +345,7 @@ export class SDKDiagnosticBase {
                 };
             }
             // TODO: We should have better way to check if the thumbnail is not expected.
-            if (!result[0].ok && result[0].error !== 'Node has no thumbnail') {
+            if (!result[0].ok && result[0].error !== 'This item has no image preview') {
                 yield {
                     type: 'thumbnails_error',
                     error: result[0].error,

@@ -312,19 +312,19 @@ describe('UploadManager', () => {
             nodesService.getNode = jest.fn().mockResolvedValue({
                 uid: 'fileNodeUid',
                 parentUid: 'parentUid',
-                activeRevision: { ok: false, error: new Error('No revision') },
+                activeRevision: undefined,
             });
 
             const result = manager.getExistingFileNodeCrypto('fileNodeUid');
 
-            await expect(result).rejects.toThrow('Creating revisions in non-files is not allowed');
+            await expect(result).rejects.toThrow('You can only upload a new version to a file');
         });
 
         it('should throw when nodeKeys has no contentKeyPacketSessionKey', async () => {
             nodesService.getNode = jest.fn().mockResolvedValue({
                 uid: 'fileNodeUid',
                 parentUid: 'parentUid',
-                activeRevision: { ok: true, value: { uid: 'revisionUid' } },
+                activeRevision: { uid: 'revisionUid' },
             });
             nodesService.getNodeKeys = jest.fn().mockResolvedValue({
                 key: 'nodeKey',
@@ -334,14 +334,14 @@ describe('UploadManager', () => {
 
             const result = manager.getExistingFileNodeCrypto('fileNodeUid');
 
-            await expect(result).rejects.toThrow('Creating revisions in non-files is not allowed');
+            await expect(result).rejects.toThrow('You can only upload a new version to a file');
         });
 
         it('should throw when nodeKeys has no contentKeyPacket', async () => {
             nodesService.getNode = jest.fn().mockResolvedValue({
                 uid: 'fileNodeUid',
                 parentUid: 'parentUid',
-                activeRevision: { ok: true, value: { uid: 'revisionUid' } },
+                activeRevision: { uid: 'revisionUid' },
             });
             nodesService.getNodeKeys = jest.fn().mockResolvedValue({
                 key: 'nodeKey',
@@ -351,7 +351,7 @@ describe('UploadManager', () => {
 
             const result = manager.getExistingFileNodeCrypto('fileNodeUid');
 
-            await expect(result).rejects.toThrow('Content key packet is required for small revision upload');
+            await expect(result).rejects.toThrow('This file version could not be uploaded');
         });
 
         it('should return key, contentKeyPacket, contentKeyPacketSessionKey and signingKeys', async () => {
@@ -359,7 +359,7 @@ describe('UploadManager', () => {
             nodesService.getNode = jest.fn().mockResolvedValue({
                 uid: 'fileNodeUid',
                 parentUid: 'parentUid',
-                activeRevision: { ok: true, value: { uid: 'revisionUid' } },
+                activeRevision: { uid: 'revisionUid' },
             });
             nodesService.getNodeKeys = jest.fn().mockResolvedValue({
                 key: 'nodeKey',
@@ -541,7 +541,7 @@ describe('UploadManager', () => {
             nodesService.getNode = jest.fn().mockResolvedValue({
                 uid: 'fileNodeUid',
                 parentUid: 'parentUid',
-                activeRevision: { ok: false, error: new Error('No revision') },
+                activeRevision: undefined,
             });
 
             const result = manager.uploadSmallRevision(
@@ -560,7 +560,7 @@ describe('UploadManager', () => {
             nodesService.getNode = jest.fn().mockResolvedValue({
                 uid: 'fileNodeUid',
                 parentUid: 'parentUid',
-                activeRevision: { ok: true, value: { uid: 'currentRevisionUid' } },
+                activeRevision: { uid: 'currentRevisionUid' },
             });
 
             const result = await manager.uploadSmallRevision(
@@ -596,7 +596,7 @@ describe('UploadManager', () => {
             nodesService.getNode = jest.fn().mockResolvedValue({
                 uid: 'fileNodeUid',
                 parentUid: 'parentUid',
-                activeRevision: { ok: true, value: { uid: 'currentRevisionUid' } },
+                activeRevision: { uid: 'currentRevisionUid' },
             });
 
             const result = await manager.uploadSmallRevision(

@@ -161,8 +161,8 @@ public struct FolderNode: Sendable {
     public let ownedBy: OwnedBy
     /// Whether the node is shared with at least one user or via public link
     public let isShared: Bool
-    /// Whether the node is shared publicly
-    public let isSharedPublicly: Bool
+    /// Whether the node is shared by URL
+    public let isSharedByUrl: Bool
     public let errors: [ProtonDriveSDKDriveError]
 
     public init(uid: SDKNodeUid,
@@ -174,7 +174,7 @@ public struct FolderNode: Sendable {
                 keyAuthor: Author,
                 ownedBy: OwnedBy,
                 isShared: Bool,
-                isSharedPublicly: Bool,
+                isSharedByUrl: Bool,
                 errors: [ProtonDriveSDKDriveError])
     {
         self.uid = uid
@@ -186,7 +186,7 @@ public struct FolderNode: Sendable {
         self.keyAuthor = keyAuthor
         self.ownedBy = ownedBy
         self.isShared = isShared
-        self.isSharedPublicly = isSharedPublicly
+        self.isSharedByUrl = isSharedByUrl
         self.errors = errors
     }
 
@@ -203,8 +203,87 @@ public struct FolderNode: Sendable {
         self.keyAuthor = Author(result: sdkFolderNode.keyAuthor)
         self.ownedBy = OwnedBy(result: sdkFolderNode.ownedBy)
         self.isShared = sdkFolderNode.isShared
-        self.isSharedPublicly = sdkFolderNode.isSharedPublicly
+        self.isSharedByUrl = sdkFolderNode.isSharedByURL
         self.errors = sdkFolderNode.errors.map { ProtonDriveSDKDriveError(error: $0) }
+    }
+}
+
+public struct AlbumNode: Sendable {
+    public let uid: SDKNodeUid
+    public let parentUid: SDKNodeUid?
+    public let name: Result<String, ProtonDriveSDKDriveError>
+    /// Created on server
+    public let creationTime: TimeInterval
+    /// When the node was moved to trash
+    public let trashTime: TimeInterval?
+    /// Person who named the album
+    public let nameAuthor: Author
+    public let keyAuthor: Author
+    /// Owner of the node, either email or organization
+    public let ownedBy: OwnedBy
+    /// Whether the node is shared with at least one user or via public link
+    public let isShared: Bool
+    /// Whether the node is shared by URL
+    public let isSharedByUrl: Bool
+    public let errors: [ProtonDriveSDKDriveError]
+    /// Number of photos in the album
+    public let photoCount: Int64
+    /// UID of the cover photo node of the album
+    public let coverPhotoNodeUid: SDKNodeUid?
+    /// Timestamp of the last activity in the album
+    public let lastActivityTime: TimeInterval?
+
+    public init(uid: SDKNodeUid,
+                parentUid: SDKNodeUid?,
+                name: Result<String, ProtonDriveSDKDriveError>,
+                creationTime: TimeInterval,
+                trashTime: TimeInterval?,
+                nameAuthor: Author,
+                keyAuthor: Author,
+                ownedBy: OwnedBy,
+                isShared: Bool,
+                isSharedByUrl: Bool,
+                errors: [ProtonDriveSDKDriveError],
+                photoCount: Int64,
+                coverPhotoNodeUid: SDKNodeUid?,
+                lastActivityTime: TimeInterval?)
+    {
+        self.uid = uid
+        self.parentUid = parentUid
+        self.name = name
+        self.creationTime = creationTime
+        self.trashTime = trashTime
+        self.nameAuthor = nameAuthor
+        self.keyAuthor = keyAuthor
+        self.ownedBy = ownedBy
+        self.isShared = isShared
+        self.isSharedByUrl = isSharedByUrl
+        self.errors = errors
+        self.photoCount = photoCount
+        self.coverPhotoNodeUid = coverPhotoNodeUid
+        self.lastActivityTime = lastActivityTime
+    }
+
+    init(sdkAlbumNode: Proton_Drive_Sdk_AlbumNode) throws {
+        guard let uid = SDKNodeUid(sdkCompatibleIdentifier: sdkAlbumNode.uid) else {
+            throw ProtonDriveSDKError(interopError: .incorrectIDFormat(id: sdkAlbumNode.uid))
+        }
+        self.uid = uid
+        self.parentUid = sdkAlbumNode.hasParentUid ? .init(sdkCompatibleIdentifier: sdkAlbumNode.parentUid) : nil
+        self.name = StringResultParser().parse(sdkAlbumNode.name)
+        self.creationTime = sdkAlbumNode.creationTime.timeIntervalSince1970
+        self.trashTime = sdkAlbumNode.hasTrashTime ? sdkAlbumNode.trashTime.timeIntervalSince1970 : nil
+        self.nameAuthor = Author(result: sdkAlbumNode.nameAuthor)
+        self.keyAuthor = Author(result: sdkAlbumNode.keyAuthor)
+        self.ownedBy = OwnedBy(result: sdkAlbumNode.ownedBy)
+        self.isShared = sdkAlbumNode.isShared
+        self.isSharedByUrl = sdkAlbumNode.isSharedByURL
+        self.errors = sdkAlbumNode.errors.map { ProtonDriveSDKDriveError(error: $0) }
+        self.photoCount = sdkAlbumNode.photoCount
+        self.coverPhotoNodeUid = sdkAlbumNode.hasCoverPhotoNodeUid
+            ? .init(sdkCompatibleIdentifier: sdkAlbumNode.coverPhotoNodeUid)
+            : nil
+        self.lastActivityTime = sdkAlbumNode.hasLastActivityTime ? sdkAlbumNode.lastActivityTime.timeIntervalSince1970 : nil
     }
 }
 
@@ -269,8 +348,8 @@ public struct FileNode: Sendable {
     public let activeRevision: FileRevision
     /// Whether the node is shared with at least one user or via public link
     public let isShared: Bool
-    /// Whether the node is shared publicly
-    public let isSharedPublicly: Bool
+    /// Whether the node is shared by URL
+    public let isSharedByUrl: Bool
     public let errors: [ProtonDriveSDKDriveError]
 
     public init(uid: SDKNodeUid,
@@ -285,7 +364,7 @@ public struct FileNode: Sendable {
                 totalStorageSize: Int64,
                 activeRevision: FileRevision,
                 isShared: Bool,
-                isSharedPublicly: Bool,
+                isSharedByUrl: Bool,
                 errors: [ProtonDriveSDKDriveError]) {
         self.uid = uid
         self.parentUid = parentUid
@@ -299,7 +378,7 @@ public struct FileNode: Sendable {
         self.totalStorageSize = totalStorageSize
         self.activeRevision = activeRevision
         self.isShared = isShared
-        self.isSharedPublicly = isSharedPublicly
+        self.isSharedByUrl = isSharedByUrl
         self.errors = errors
     }
 
@@ -319,8 +398,91 @@ public struct FileNode: Sendable {
         self.totalStorageSize = sdkFileNode.totalStorageSize
         self.activeRevision = try FileRevision(sdkFileRevision: sdkFileNode.activeRevision)
         self.isShared = sdkFileNode.isShared
-        self.isSharedPublicly = sdkFileNode.isSharedPublicly
+        self.isSharedByUrl = sdkFileNode.isSharedByURL
         self.errors = sdkFileNode.errors.map { ProtonDriveSDKDriveError(error: $0) }
+    }
+}
+
+public struct PhotoNode: Sendable {
+    public let uid: SDKNodeUid
+    public let parentUid: SDKNodeUid?
+    public let name: Result<String, ProtonDriveSDKDriveError>
+    public let creationTime: TimeInterval
+    public let trashTime: TimeInterval?
+    /// Person who named the photo
+    public let nameAuthor: Author
+    public let keyAuthor: Author
+    /// Owner of the node, either email or organization
+    public let ownedBy: OwnedBy
+    /// MIME type of the photo
+    public let mediaType: String
+    /// Total size of all revisions, encrypted size on the server
+    public let totalStorageSize: Int64
+    public let activeRevision: FileRevision
+    /// Whether the node is shared with at least one user or via public link
+    public let isShared: Bool
+    /// Whether the node is shared by URL
+    public let isSharedByUrl: Bool
+    public let errors: [ProtonDriveSDKDriveError]
+    /// Time the photo was captured
+    public let captureTime: TimeInterval
+    /// UIDs of the albums the photo belongs to
+    public let albumUids: [SDKNodeUid]
+
+    public init(uid: SDKNodeUid,
+                parentUid: SDKNodeUid?,
+                name: Result<String, ProtonDriveSDKDriveError>,
+                creationTime: TimeInterval,
+                trashTime: TimeInterval?,
+                nameAuthor: Author,
+                keyAuthor: Author,
+                ownedBy: OwnedBy,
+                mediaType: String,
+                totalStorageSize: Int64,
+                activeRevision: FileRevision,
+                isShared: Bool,
+                isSharedByUrl: Bool,
+                errors: [ProtonDriveSDKDriveError],
+                captureTime: TimeInterval,
+                albumUids: [SDKNodeUid]) {
+        self.uid = uid
+        self.parentUid = parentUid
+        self.name = name
+        self.creationTime = creationTime
+        self.trashTime = trashTime
+        self.nameAuthor = nameAuthor
+        self.keyAuthor = keyAuthor
+        self.ownedBy = ownedBy
+        self.mediaType = mediaType
+        self.totalStorageSize = totalStorageSize
+        self.activeRevision = activeRevision
+        self.isShared = isShared
+        self.isSharedByUrl = isSharedByUrl
+        self.errors = errors
+        self.captureTime = captureTime
+        self.albumUids = albumUids
+    }
+
+    init(sdkPhotoNode: Proton_Drive_Sdk_PhotoNode) throws {
+        guard let uid = SDKNodeUid(sdkCompatibleIdentifier: sdkPhotoNode.uid) else {
+            throw ProtonDriveSDKError(interopError: .incorrectIDFormat(id: sdkPhotoNode.uid))
+        }
+        self.uid = uid
+        self.parentUid = sdkPhotoNode.hasParentUid ? .init(sdkCompatibleIdentifier: sdkPhotoNode.parentUid) : nil
+        self.name = StringResultParser().parse(sdkPhotoNode.name)
+        self.creationTime = sdkPhotoNode.creationTime.timeIntervalSince1970
+        self.trashTime = sdkPhotoNode.hasTrashTime ? sdkPhotoNode.trashTime.timeIntervalSince1970 : nil
+        self.nameAuthor = Author(result: sdkPhotoNode.nameAuthor)
+        self.keyAuthor = Author(result: sdkPhotoNode.keyAuthor)
+        self.ownedBy = OwnedBy(result: sdkPhotoNode.ownedBy)
+        self.mediaType = sdkPhotoNode.mediaType
+        self.totalStorageSize = sdkPhotoNode.totalStorageSize
+        self.activeRevision = try FileRevision(sdkFileRevision: sdkPhotoNode.activeRevision)
+        self.isShared = sdkPhotoNode.isShared
+        self.isSharedByUrl = sdkPhotoNode.isSharedByURL
+        self.errors = sdkPhotoNode.errors.map { ProtonDriveSDKDriveError(error: $0) }
+        self.captureTime = sdkPhotoNode.captureTime.timeIntervalSince1970
+        self.albumUids = sdkPhotoNode.albumUids.compactMap { SDKNodeUid(sdkCompatibleIdentifier: $0) }
     }
 }
 
@@ -441,6 +603,8 @@ public struct FileRevision: Sendable {
 public enum DriveNode: Sendable {
     case folder(FolderNode)
     case file(FileNode)
+    case album(AlbumNode)
+    case photo(PhotoNode)
 
     init(sdkNode: Proton_Drive_Sdk_Node) throws {
         switch sdkNode.node {
@@ -448,8 +612,12 @@ public enum DriveNode: Sendable {
             self = .folder(try FolderNode(sdkFolderNode: folder))
         case .file(let file):
             self = .file(try FileNode(sdkFileNode: file))
+        case .album(let album):
+            self = .album(try AlbumNode(sdkAlbumNode: album))
+        case .photo(let photo):
+            self = .photo(try PhotoNode(sdkPhotoNode: photo))
         case .none:
-            throw ProtonDriveSDKError(interopError: .wrongSDKResponse(message: "Invalid Node: no folder or file set"))
+            throw ProtonDriveSDKError(interopError: .wrongSDKResponse(message: "Invalid Node: no folder, file, album or photo set"))
         }
     }
 
@@ -459,6 +627,14 @@ public enum DriveNode: Sendable {
 
     public init(folderNode: FolderNode) {
         self = .folder(folderNode)
+    }
+
+    public init(albumNode: AlbumNode) {
+        self = .album(albumNode)
+    }
+
+    public init(photoNode: PhotoNode) {
+        self = .photo(photoNode)
     }
 }
 
@@ -490,6 +666,22 @@ public struct PhotoTimelineItem: Sendable {
     }
 
     init?(item: Proton_Drive_Sdk_PhotosTimelineItem) {
+        guard let nodeUid = SDKNodeUid(sdkCompatibleIdentifier: item.nodeUid) else { return nil }
+        self.nodeUid = nodeUid
+        self.captureTime = item.captureTime.timeIntervalSince1970
+    }
+}
+
+public struct AlbumItem: Sendable {
+    public let nodeUid: SDKNodeUid
+    public let captureTime: Double
+
+    public init(nodeUid: SDKNodeUid, captureTime: Double) {
+        self.nodeUid = nodeUid
+        self.captureTime = captureTime
+    }
+
+    init?(item: Proton_Drive_Sdk_AlbumItem) {
         guard let nodeUid = SDKNodeUid(sdkCompatibleIdentifier: item.nodeUid) else { return nil }
         self.nodeUid = nodeUid
         self.captureTime = item.captureTime.timeIntervalSince1970
@@ -603,6 +795,20 @@ public struct NodeResult: Sendable {
 
 public typealias TrashNodeResult = NodeResult
 
+/// Describes a tag mutation for a single photo: the tags to add and the tags to remove.
+/// Tags are raw `PhotoTag` values (0-9); unknown values throw `containsUnknownPhotoTags`.
+public struct PhotoTagsUpdate: Sendable {
+    public let nodeUid: SDKNodeUid
+    public let tagsToAdd: [PhotoTag]
+    public let tagsToRemove: [PhotoTag]
+
+    public init(nodeUid: SDKNodeUid, tagsToAdd: [PhotoTag] = [], tagsToRemove: [PhotoTag] = []) {
+        self.nodeUid = nodeUid
+        self.tagsToAdd = tagsToAdd
+        self.tagsToRemove = tagsToRemove
+    }
+}
+
 /// Callback for progress updates
 public typealias ProgressCallback = @Sendable (FileOperationProgress) -> Void
 
@@ -629,6 +835,15 @@ public struct FileOperationProgress {
 
 /// Callback for node UID enumeration updates
 public typealias NodeUidCallback = @Sendable (Result<SDKNodeUid, Error>) -> Void
+
+/// Callback for device enumeration updates
+public typealias DeviceCallback = @Sendable (Result<Device, Error>) -> Void
+
+/// Callback for photo timeline item enumeration updates
+public typealias PhotoTimelineItemCallback = @Sendable (Result<PhotoTimelineItem, Error>) -> Void
+
+/// Callback for album item enumeration updates
+public typealias AlbumItemCallback = @Sendable (Result<AlbumItem, Error>) -> Void
 
 /// Callback for thumbnail updates
 public typealias ThumbnailCallback = @Sendable (Result<ThumbnailDataWithId?, Error>) -> Void

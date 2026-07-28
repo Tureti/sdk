@@ -6,6 +6,7 @@ import {
     Thumbnail,
     ValidationError,
 } from '@protontech/drive-sdk';
+import { generateAdditionalNodeMetadata } from '@protontech/drive-sdk/additionalNodeMetadata';
 
 import { type ActionArgs, type Command, Options, PathType } from '../../cli';
 import type { CliMetrics } from '../../telemetry';
@@ -66,7 +67,8 @@ type UploadContext = {
 export class CommandFileSystemUpload implements Command {
     group = 'filesystem';
     name = 'upload';
-    help = 'Uploads files and folders. It prompts for conflict resolution unless a strategy option is set.';
+    help =
+        'Uploads files and folders. It prompts for conflict resolution unless a strategy option is set. Files with the same content are automatically skipped.';
     args = ['localPath...', 'parentPath'];
     options: Options = {
         'conflict-strategy': {
@@ -258,6 +260,12 @@ export class CommandFileSystemUpload implements Command {
                 }
                 const existingNode = await ctx.sdk.getNode(existingNodeUid);
 
+                // If the existing node is already the same file, automatically skip the upload.
+                const existingSha1 = existingNode.activeRevision?.claimedDigests?.sha1;
+                if (existingSha1 === metadata.expectedSha1) {
+                    return false;
+                }
+
                 const choice = await ctx.conflictResolver.resolve(item.baseName, ConflictTargetKind.File);
                 switch (choice) {
                     case ConflictChoice.Skip:
@@ -292,9 +300,12 @@ export class CommandFileSystemUpload implements Command {
 export async function getFileMetadata(
     ctx: {
         skipThumbnails: boolean;
+        logger: Logger;
     },
     item: QueueItemFile<{ parentNode: NodeEntity }>,
     mediaType: string,
+    additionalMetadataCallback = async (file: Bun.BunFile) =>
+        generateAdditionalNodeMetadata(file, mediaType, undefined, ctx.logger),
 ) {
     const expectedSha1 = await getSha1(item.localPath);
     const file = Bun.file(item.localPath);
@@ -303,7 +314,7 @@ export async function getFileMetadata(
         expectedSize: file.size,
         expectedSha1,
         modificationTime: file.lastModified && file.lastModified !== 0 ? new Date(file.lastModified) : undefined,
-        // additionalMetadata: TODO
+        ...(await additionalMetadataCallback(file)),
     };
 
     let thumbnails: Thumbnail[] = [];

@@ -1,11 +1,10 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Proton.Drive.Sdk.Api;
-using Proton.Drive.Sdk.Api.Photos;
+using Proton.Drive.Sdk.Api.Shares;
 using Proton.Drive.Sdk.Caching;
 using Proton.Drive.Sdk.Http;
 using Proton.Drive.Sdk.Nodes;
-using Proton.Drive.Sdk.Nodes.Cryptography;
 using Proton.Drive.Sdk.Nodes.Download;
 using Proton.Drive.Sdk.Nodes.Upload;
 using Proton.Drive.Sdk.Nodes.Upload.Verification;
@@ -18,9 +17,12 @@ using Proton.Sdk.Telemetry;
 
 namespace Proton.Drive.Sdk;
 
+[Experimental("Photos")]
 public sealed class ProtonPhotosClient
 {
-    private const int ActiveLinkState = 1;
+    // The types of shared items exposed by the Photos client.
+    private static readonly ShareTargetType[] ShareTargetTypes =
+        [ShareTargetType.Photo, ShareTargetType.Album];
 
     public ProtonPhotosClient(
         IHttpClientFactory httpClientFactory,
@@ -47,14 +49,7 @@ public sealed class ProtonPhotosClient
             telemetry,
             creationParameters?.Uid,
             creationParameters?.DegreeOfBlockTransferParallelismOverride);
-
-        var httpClient = new SdkHttpClientFactoryDecorator(httpClientFactory).CreateClientWithTimeout(
-            creationParameters?.DefaultApiTimeoutSecondsOverride ?? ProtonApiDefaults.DefaultTimeoutSeconds);
-
-        PhotosApi = new PhotosApiClient(httpClient);
     }
-
-    internal IPhotosApiClient PhotosApi { get; }
 
     internal ProtonDriveClient DriveClient { get; }
 
@@ -89,43 +84,12 @@ public sealed class ProtonPhotosClient
         return await GetFileUploaderAsync(draftProvider, photosRoot.Uid, size, metadata, cancellationToken).ConfigureAwait(false);
     }
 
-    public async ValueTask<IReadOnlyList<string>> FindDuplicatesAsync(
+    public ValueTask<IReadOnlyList<string>> FindDuplicatesAsync(
         string name,
         Func<CancellationToken, ValueTask<ReadOnlyMemory<byte>>> computeContentSha1,
         CancellationToken cancellationToken)
     {
-        var photosRoot = await PhotosNodeOperations.GetOrCreatePhotosFolderAsync(DriveClient, cancellationToken).ConfigureAwait(false);
-
-        var operationData = await FolderOperations.GetOperationDataAsync(DriveClient, photosRoot.Uid, knownShareAndKey: null, cancellationToken)
-            .ConfigureAwait(false);
-
-        var hashKey = operationData.HashKey ?? throw new InvalidOperationException("Photos root hash key not available");
-
-        var nameHash = NodeCrypto.HashNodeName(name, hashKey.Span);
-
-        var response = await PhotosApi.FindDuplicatesAsync(photosRoot.Uid.VolumeId, [nameHash], cancellationToken).ConfigureAwait(false);
-
-        var candidates = response.DuplicateHashes
-            .Where(duplicate =>
-                duplicate.LinkId is not null
-                && duplicate.LinkState == ActiveLinkState
-                && !duplicate.Hash.IsEmpty
-                && !duplicate.ContentHash.IsEmpty)
-            .ToList();
-
-        if (candidates.Count == 0)
-        {
-            return [];
-        }
-
-        // Only compute the (potentially expensive) content hash once we know a name already matches.
-        var contentSha1Digest = await computeContentSha1(cancellationToken).ConfigureAwait(false);
-        var contentHash = NodeCrypto.HashContentDigest(contentSha1Digest, hashKey.Span);
-
-        return candidates
-            .Where(duplicate => duplicate.Hash.Span.SequenceEqual(nameHash) && duplicate.ContentHash.Span.SequenceEqual(contentHash))
-            .Select(duplicate => new NodeUid(photosRoot.Uid.VolumeId, duplicate.LinkId!.Value).ToString())
-            .ToList();
+        return PhotoOperations.FindDuplicatesAsync(DriveClient, name, computeContentSha1, cancellationToken);
     }
 
     public ValueTask<Node?> GetNodeAsync(NodeUid nodeUid, CancellationToken cancellationToken)
@@ -140,10 +104,19 @@ public sealed class ProtonPhotosClient
         return NodeOperations.EnumerateNodesAsync(DriveClient, nodeUids, cancellationToken);
     }
 
-    [Experimental("Photos")]
     public IAsyncEnumerable<PhotosTimelineItem> EnumerateTimelineAsync(CancellationToken cancellationToken)
     {
         return PhotosNodeOperations.EnumeratePhotosTimelineAsync(DriveClient, cancellationToken);
+    }
+
+    public IAsyncEnumerable<NodeUid> EnumerateAlbumNodeUidsAsync(CancellationToken cancellationToken)
+    {
+        return PhotosNodeOperations.EnumerateAlbumNodeUidsAsync(DriveClient, cancellationToken);
+    }
+
+    public IAsyncEnumerable<AlbumItem> EnumerateAlbumAsync(NodeUid albumUid, CancellationToken cancellationToken)
+    {
+        return PhotosNodeOperations.EnumerateAlbumAsync(DriveClient, albumUid, cancellationToken);
     }
 
     [Experimental("TryTransferQueuing")]
@@ -171,6 +144,11 @@ public sealed class ProtonPhotosClient
             DriveClient,
             VolumeOperations.TryGetPhotosVolumeIdAsync,
             cancellationToken);
+    }
+
+    public IAsyncEnumerable<NodeUid> EnumerateSharedWithMeNodeUidsAsync(CancellationToken cancellationToken = default)
+    {
+        return EnumerateSharedWithMeNodeUidsAsync(DriveClient, cancellationToken);
     }
 
     public ValueTask LeaveSharedNodeAsync(NodeUid nodeUid, CancellationToken cancellationToken)
@@ -222,10 +200,41 @@ public sealed class ProtonPhotosClient
         await VolumeOperations.EmptyTrashAsync(DriveClient, volumeId.Value, cancellationToken).ConfigureAwait(false);
     }
 
-    [Experimental("Photos")]
+    /// <summary>Adds and removes tags (including favorite) on the given photos.</summary>
+    /// <remarks>
+    /// Shared photos are not yet supported. Favoriting a photo that lives outside the user's own photos volume
+    /// requires re-encrypting the photo and its related photos for the target, which is not implemented; such updates
+    /// fail with a <see cref="NotSupportedException"/> in the returned results. Related photos (e.g. Live Photo or burst
+    /// siblings) are likewise not handled yet.
+    /// </remarks>
+    public ValueTask<IReadOnlyDictionary<NodeUid, Result<Exception>>> UpdatePhotosAsync(
+        IReadOnlyList<PhotoTagsUpdate> updates,
+        CancellationToken cancellationToken)
+    {
+        return PhotoOperations.UpdatePhotosAsync(DriveClient, updates, cancellationToken);
+    }
+
     internal ValueTask<FolderNode> GetPhotosRootAsync(CancellationToken cancellationToken)
     {
         return PhotosNodeOperations.GetOrCreatePhotosFolderAsync(DriveClient, cancellationToken);
+    }
+
+    private static async IAsyncEnumerable<NodeUid> EnumerateSharedWithMeNodeUidsAsync(
+        ProtonDriveClient client,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        await foreach (var nodeUid in Shares.SharingOperations.EnumerateSharedWithMeNodeUidsAsync(client, ShareTargetTypes, cancellationToken)
+            .ConfigureAwait(false))
+        {
+            yield return nodeUid;
+        }
+
+        // Shared albums are not (yet) returned by the shared-with-me endpoint, so they are
+        // enumerated from a dedicated endpoint. Mirrors the JS sharing apiService.
+        await foreach (var albumUid in PhotoOperations.EnumerateSharedWithMeAlbumUidsAsync(client, cancellationToken).ConfigureAwait(false))
+        {
+            yield return albumUid;
+        }
     }
 
     private async ValueTask<FileUploader> GetFileUploaderAsync(

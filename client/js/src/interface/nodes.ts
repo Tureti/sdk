@@ -70,13 +70,13 @@ export type NodeEntity = {
     mediaType?: string;
     /**
      * Whether the node is shared. If true, the node is shared with at least
-     * one user, or via public link.
+     * one user, or via URL access.
      */
     isShared: boolean;
     /**
-     * Whether the node is publicly shared. If true, the node is shared via public link.
+     * Whether the node is shared by URL.
      */
-    isSharedPublicly: boolean;
+    isSharedByUrl: boolean;
     /**
      * Provides the ID of the share that the node is shared with.
      *
@@ -99,7 +99,7 @@ export type NodeEntity = {
      * Total size of all revisions, encrypted size on the server.
      */
     totalStorageSize?: number;
-    activeRevision?: Result<Revision, Error>;
+    activeRevision?: Revision;
     folder?: {
         claimedModificationTime?: Date;
         isImported: boolean;
@@ -122,6 +122,10 @@ export type NodeEntity = {
      * On the other hand, if the node has issue decrypting the node key, but
      * the name is still working, this will include the node key error, while
      * the name will be set to the decrypted value.
+     *
+     * Similarly, if extended attributes of the active revision cannot be
+     * decrypted, the error is included here while the revision metadata
+     * (without claimed fields) is still available on `activeRevision`.
      */
     errors?: unknown[];
 };

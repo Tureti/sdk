@@ -343,7 +343,7 @@ export abstract class NodesAccessBase<
 
         if (errors.length > 0) {
             this.logger.error(`Failed to decrypt ${errors.length} nodes`, errors);
-            throw new ProtonDriveError(c('Error').t`Failed to load some nodes`, { cause: errors });
+            throw new ProtonDriveError(c('Error').t`Some items could not be loaded`, { cause: errors });
         }
 
         const missingNodeUids = nodeUids.filter((nodeUid) => !returnedNodeUids.includes(nodeUid));
@@ -439,7 +439,7 @@ export abstract class NodesAccessBase<
                     // Change the error message to be more specific.
                     // Original error message is referring to node, while here
                     // it referes to as parent to follow the method context.
-                    throw new DecryptionError(c('Error').t`Parent cannot be decrypted`, { cause: error });
+                    throw new DecryptionError(c('Error').t`Could not unlock the parent folder`, { cause: error });
                 }
                 throw error;
             }
@@ -461,7 +461,7 @@ export abstract class NodesAccessBase<
         } catch {
             const { keys } = await this.loadNode(nodeUid);
             if (!keys) {
-                throw new DecryptionError(c('Error').t`Item cannot be decrypted`);
+                throw new DecryptionError(c('Error').t`Could not unlock this item`);
             }
             return keys;
         }
@@ -526,7 +526,7 @@ export abstract class NodesAccessBase<
 
         const rootNode = await this.getRootNode(nodeUid);
         if (!rootNode.shareId) {
-            throw new ProtonDriveError(c('Error').t`Node is not accessible`);
+            throw new ProtonDriveError(c('Error').t`You do not have access to this item`);
         }
         const { nodeId } = splitNodeUid(nodeUid);
         const type = node.type === NodeType.File ? 'file' : 'folder';
@@ -567,33 +567,33 @@ export function parseNode(logger: Logger, unparsedNode: DecryptedUnparsedNode): 
     const treeEventScopeId = splitNodeUid(unparsedNode.uid).volumeId;
 
     if (unparsedNode.type === NodeType.File) {
-        const extendedAttributes = unparsedNode.activeRevision?.ok
+        const extendedAttributes = unparsedNode.activeRevision
             ? parseFileExtendedAttributes(
                   logger,
-                  unparsedNode.activeRevision.value.creationTime,
-                  unparsedNode.activeRevision.value.extendedAttributes,
+                  unparsedNode.activeRevision.creationTime,
+                  unparsedNode.activeRevision.extendedAttributes,
               )
             : undefined;
 
         return {
             ...unparsedNode,
             isStale: false,
-            activeRevision: !unparsedNode.activeRevision?.ok
-                ? unparsedNode.activeRevision
-                : resultOk({
-                      uid: unparsedNode.activeRevision.value.uid,
-                      state: unparsedNode.activeRevision.value.state,
-                      creationTime: unparsedNode.activeRevision.value.creationTime,
-                      storageSize: unparsedNode.activeRevision.value.storageSize,
-                      contentAuthor: unparsedNode.activeRevision.value.contentAuthor,
-                      thumbnails: unparsedNode.activeRevision.value.thumbnails,
-                      isImported: unparsedNode.activeRevision.value.isImported,
+            activeRevision: unparsedNode.activeRevision
+                ? {
+                      uid: unparsedNode.activeRevision.uid,
+                      state: unparsedNode.activeRevision.state,
+                      creationTime: unparsedNode.activeRevision.creationTime,
+                      storageSize: unparsedNode.activeRevision.storageSize,
+                      contentAuthor: unparsedNode.activeRevision.contentAuthor,
+                      thumbnails: unparsedNode.activeRevision.thumbnails,
+                      isImported: unparsedNode.activeRevision.isImported,
                       ...extendedAttributes,
                       claimedDigests: {
                           ...extendedAttributes?.claimedDigests,
-                          sha1Verified: unparsedNode.activeRevision.value.sha1Verified || false,
+                          sha1Verified: unparsedNode.activeRevision.sha1Verified || false,
                       },
-                  }),
+                  }
+                : undefined,
             folder: undefined,
             treeEventScopeId,
         };

@@ -67,6 +67,24 @@ internal static class InteropProtonPhotosClient
         };
     }
 
+    public static async ValueTask<IMessage> HandleUpdatePhotosAsync(DrivePhotosClientUpdatePhotosRequest request)
+    {
+        var cancellationToken = Interop.GetCancellationToken(request.CancellationTokenSourceHandle);
+
+        var client = Interop.GetFromHandle<ProtonPhotosClient>(request.ClientHandle);
+
+        var updates = request.Updates.Select(update => new Nodes.PhotoTagsUpdate
+        {
+            NodeUid = NodeUid.Parse(update.NodeUid),
+            TagsToAdd = update.TagsToAdd.Select(tag => (Nodes.PhotoTag)tag).ToList(),
+            TagsToRemove = update.TagsToRemove.Select(tag => (Nodes.PhotoTag)tag).ToList(),
+        }).ToList();
+
+        var results = await client.UpdatePhotosAsync(updates, cancellationToken).ConfigureAwait(false);
+
+        return results.ToInterop();
+    }
+
     public static async ValueTask<IMessage> HandleTrashNodesAsync(DrivePhotosClientTrashNodesRequest request)
     {
         var cancellationToken = Interop.GetCancellationToken(request.CancellationTokenSourceHandle);
@@ -160,6 +178,23 @@ internal static class InteropProtonPhotosClient
         return null;
     }
 
+    public static async ValueTask<IMessage?> HandleEnumerateSharedWithMeNodeUidsAsync(
+        DrivePhotosClientEnumerateSharedWithMeNodeUidsRequest request,
+        nint bindingsHandle)
+    {
+        var yieldAction = new InteropAction<nint, InteropArray<byte>>(request.YieldAction);
+        var cancellationToken = Interop.GetCancellationToken(request.CancellationTokenSourceHandle);
+
+        var client = Interop.GetFromHandle<ProtonPhotosClient>(request.ClientHandle);
+
+        await foreach (var nodeUid in client.EnumerateSharedWithMeNodeUidsAsync(cancellationToken).ConfigureAwait(false))
+        {
+            yieldAction.InvokeWithMessage(bindingsHandle, new StringValue { Value = nodeUid.ToString() });
+        }
+
+        return null;
+    }
+
     public static IMessage? HandleFree(DrivePhotosClientFreeRequest request)
     {
         Interop.FreeHandle<ProtonPhotosClient>(request.ClientHandle);
@@ -186,6 +221,40 @@ internal static class InteropProtonPhotosClient
         await foreach (var x in client.EnumerateTimelineAsync(cancellationToken).ConfigureAwait(false))
         {
             yieldAction.InvokeWithMessage(bindingsHandle, new PhotosTimelineItem
+            {
+                NodeUid = x.Uid.ToString(),
+                CaptureTime = x.CaptureTime.ToUniversalTime().ToTimestamp(),
+            });
+        }
+
+        return null;
+    }
+
+    public static async ValueTask<IMessage?> HandleEnumerateAlbumNodeUidsAsync(DrivePhotosClientEnumerateAlbumNodeUidsRequest request, nint bindingsHandle)
+    {
+        var yieldAction = new InteropAction<nint, InteropArray<byte>>(request.YieldAction);
+        var cancellationToken = Interop.GetCancellationToken(request.CancellationTokenSourceHandle);
+        var client = Interop.GetFromHandle<ProtonPhotosClient>(request.ClientHandle);
+
+        await foreach (var nodeUid in client.EnumerateAlbumNodeUidsAsync(cancellationToken).ConfigureAwait(false))
+        {
+            yieldAction.InvokeWithMessage(bindingsHandle, new StringValue { Value = nodeUid.ToString() });
+        }
+
+        return null;
+    }
+
+    public static async ValueTask<IMessage?> HandleEnumerateAlbumAsync(DrivePhotosClientEnumerateAlbumRequest request, nint bindingsHandle)
+    {
+        var yieldAction = new InteropAction<nint, InteropArray<byte>>(request.YieldAction);
+        var cancellationToken = Interop.GetCancellationToken(request.CancellationTokenSourceHandle);
+        var client = Interop.GetFromHandle<ProtonPhotosClient>(request.ClientHandle);
+
+        var albumUid = NodeUid.Parse(request.AlbumUid);
+
+        await foreach (var x in client.EnumerateAlbumAsync(albumUid, cancellationToken).ConfigureAwait(false))
+        {
+            yieldAction.InvokeWithMessage(bindingsHandle, new AlbumItem
             {
                 NodeUid = x.Uid.ToString(),
                 CaptureTime = x.CaptureTime.ToUniversalTime().ToTimestamp(),

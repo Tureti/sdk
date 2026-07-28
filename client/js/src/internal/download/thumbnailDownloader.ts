@@ -91,20 +91,17 @@ export class ThumbnailDownloader {
                 yield {
                     nodeUid: node.missingUid,
                     ok: false,
-                    error: c('Error').t`Node not found`,
+                    error: c('Error').t`Item not found`,
                 };
                 continue;
             }
 
-            let thumbnail;
-            if (node.activeRevision?.ok) {
-                thumbnail = node.activeRevision.value.thumbnails?.find((t) => t.type === thumbnailType);
-            }
+            const thumbnail = node.activeRevision?.thumbnails?.find((t) => t.type === thumbnailType);
             if (!thumbnail) {
                 yield {
                     nodeUid: node.uid,
                     ok: false,
-                    error: c('Error').t`Node has no thumbnail`,
+                    error: c('Error').t`This item has no image preview`,
                 };
                 continue;
             }
@@ -202,7 +199,7 @@ export class ThumbnailDownloader {
             yield {
                 nodeUid,
                 ok: false,
-                error: c('Error').t`Thumbnail not found`,
+                error: c('Error').t`Image preview not found`,
             };
         }
     }
@@ -229,7 +226,7 @@ export class ThumbnailDownloader {
                 ]);
 
                 if (!nodeKeys.contentKeyPacketSessionKey) {
-                    throw new ValidationError(c('Error').t`File has no content key`);
+                    throw new ValidationError(c('Error').t`This file has missing crypto material`);
                 }
 
                 logger.debug(`Decrypting`);

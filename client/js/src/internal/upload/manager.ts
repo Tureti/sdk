@@ -95,12 +95,12 @@ export class UploadManager {
         const node = await this.nodesService.getNode(nodeUid);
         const nodeKeys = await this.nodesService.getNodeKeys(nodeUid);
 
-        if (!node.activeRevision?.ok || !nodeKeys.contentKeyPacketSessionKey) {
-            throw new ValidationError(c('Error').t`Creating revisions in non-files is not allowed`);
+        if (!node.activeRevision || !nodeKeys.contentKeyPacketSessionKey) {
+            throw new ValidationError(c('Error').t`You can only upload a new version to a file`);
         }
 
         if (!nodeKeys.contentKeyPacket) {
-            throw new ValidationError(c('Error').t`Content key packet is required for small revision upload`);
+            throw new ValidationError(c('Error').t`This file version could not be uploaded`);
         }
 
         const signingKeys = await this.cryptoService.getSigningKeysForExistingNode({
@@ -232,12 +232,12 @@ export class UploadManager {
         signal?: AbortSignal,
     ): Promise<{ nodeUid: string; nodeRevisionUid: string }> {
         const node = await this.nodesService.getNode(nodeUid);
-        if (!node.activeRevision?.ok) {
+        if (!node.activeRevision) {
             throw new ValidationError(c('Error').t`File has no revision`);
         }
         const result = await this.apiService.uploadSmallRevision(
             nodeUid,
-            node.activeRevision.value.uid,
+            node.activeRevision.uid,
             {
                 signatureEmail: nodeCrypto.signingKeys.email ?? null,
                 armoredExtendedAttributes: commitPayload.armoredExtendedAttributes,
@@ -343,8 +343,8 @@ export class UploadManager {
         const node = await this.nodesService.getNode(nodeUid);
         const nodeKeys = await this.nodesService.getNodeKeys(nodeUid);
 
-        if (!node.activeRevision?.ok || !nodeKeys.contentKeyPacketSessionKey) {
-            throw new ValidationError(c('Error').t`Creating revisions in non-files is not allowed`);
+        if (!node.activeRevision || !nodeKeys.contentKeyPacketSessionKey) {
+            throw new ValidationError(c('Error').t`You can only upload a new version to a file`);
         }
 
         const signingKeys = await this.cryptoService.getSigningKeysForExistingNode({
@@ -353,7 +353,7 @@ export class UploadManager {
         });
 
         const { nodeRevisionUid } = await this.apiService.createDraftRevision(nodeUid, {
-            currentRevisionUid: node.activeRevision.value.uid,
+            currentRevisionUid: node.activeRevision.uid,
             intendedUploadSize:
                 metadata.expectedSize !== null ? reduceSizePrecision(metadata.expectedSize) : undefined,
         });

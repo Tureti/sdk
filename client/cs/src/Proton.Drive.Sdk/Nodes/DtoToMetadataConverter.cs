@@ -86,7 +86,7 @@ internal static class DtoToMetadataConverter
                     cancellationToken).ConfigureAwait(false)),
 
             LinkType.Album => NodeMetadataConversionResult.FromFolder(
-                await ConvertFolderMetadataAsync(
+                await ConvertAlbumMetadataAsync(
                     client.Account,
                     volumeId,
                     linkDetailsDto,
@@ -204,6 +204,33 @@ internal static class DtoToMetadataConverter
             membershipDto);
     }
 
+    private static async ValueTask<FolderMetadataConversionResult> ConvertAlbumMetadataAsync(
+        IProtonAccountClient account,
+        VolumeId volumeId,
+        LinkDetailsDto linkDetailsDto,
+        AlbumDto albumDto,
+        PgpPrivateKey parentKey,
+        CancellationToken cancellationToken)
+    {
+        // Albums decrypt like folders; the album metadata (photo count, cover photo, last activity time)
+        // comes from the link details and is layered onto an AlbumNode.
+        var folderDto = new FolderDto { HashKey = albumDto.HashKey, ExtendedAttributes = albumDto.ExtendedAttributes };
+
+        var folderResult = await ConvertFolderMetadataAsync(account, volumeId, linkDetailsDto, folderDto, parentKey, cancellationToken)
+            .ConfigureAwait(false);
+
+        var coverPhotoUid = albumDto.CoverLinkId is { } coverLinkId ? new NodeUid(volumeId, coverLinkId) : (NodeUid?)null;
+
+        var albumNode = new AlbumNode(folderResult.Metadata.Node)
+        {
+            PhotoCount = albumDto.PhotoCount,
+            CoverPhotoUid = coverPhotoUid,
+            LastActivityTime = albumDto.LastActivityTime,
+        };
+
+        return folderResult with { Metadata = folderResult.Metadata with { Node = albumNode } };
+    }
+
     private static FileMetadataConversionResult BuildFileMetadata(
         LinkDetailsDto linkDetailsDto,
         FileDecryptionResult decryptionResult,
@@ -257,7 +284,7 @@ internal static class DtoToMetadataConverter
 
         var ownedBy = MapOwnedBy(linkDto.OwnedBy);
         var isShared = linkDetailsDto.Sharing is not null;
-        var isSharedPublicly = linkDetailsDto.Sharing?.ShareUrlId is not null;
+        var isSharedByUrl = linkDetailsDto.Sharing?.ShareUrlId is not null;
 
         var node = linkDetailsDto.Photo is { } photo
             ? new PhotoNode
@@ -274,9 +301,12 @@ internal static class DtoToMetadataConverter
                 TotalStorageSize = fileDto.TotalSizeOnStorage,
                 CaptureTime = photo.CaptureTime,
                 AlbumUids = photo.AlbumInclusions.Select(a => new NodeUid(uid.VolumeId, a.Id)).ToList(),
+                Tags = photo.Tags,
+                RelatedPhotoUids = photo.RelatedPhotosLinkIds.Select(id => new NodeUid(uid.VolumeId, new LinkId(id))).ToList(),
+                ContentHash = photo.ContentHash,
                 OwnedBy = ownedBy,
                 IsShared = isShared,
-                IsSharedPublicly = isSharedPublicly,
+                IsSharedByUrl = isSharedByUrl,
                 Errors = nodeErrors,
             }
             : new FileNode
@@ -293,7 +323,7 @@ internal static class DtoToMetadataConverter
                 TotalStorageSize = fileDto.TotalSizeOnStorage,
                 OwnedBy = ownedBy,
                 IsShared = isShared,
-                IsSharedPublicly = isSharedPublicly,
+                IsSharedByUrl = isSharedByUrl,
                 Errors = nodeErrors,
             };
 
@@ -352,7 +382,7 @@ internal static class DtoToMetadataConverter
 
         if (modificationTimeResult?.TryGetError(out var modificationTimeError) == true)
         {
-            nodeErrors.Add(new ExtendedAttributesDeserializationError("Failed to deserialize modification time", modificationTimeError));
+            nodeErrors.Add(new ExtendedAttributesDeserializationError("Could not read item's modification time", modificationTimeError));
         }
 
         if (decryptionResult.ExtendedAttributes.TryGetError(out var extendedAttributesError))
@@ -405,7 +435,7 @@ internal static class DtoToMetadataConverter
             TrashTime = linkDto.TrashTime,
             OwnedBy = MapOwnedBy(linkDto.OwnedBy),
             IsShared = sharing is not null,
-            IsSharedPublicly = sharing?.ShareUrlId is not null,
+            IsSharedByUrl = sharing?.ShareUrlId is not null,
             Errors = nodeErrors,
         };
 

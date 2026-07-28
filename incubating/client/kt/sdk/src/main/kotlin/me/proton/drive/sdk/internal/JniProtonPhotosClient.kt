@@ -103,6 +103,34 @@ class JniProtonPhotosClient internal constructor() : JniBaseProtonDriveSdk() {
         drivePhotosClientEnumerateTimeline = request
     }
 
+    suspend fun enumerateAlbumNodeUids(
+        coroutineScope: ProducerScope<NodeUid>,
+        request: ProtonDriveSdk.DrivePhotosClientEnumerateAlbumNodeUidsRequest,
+        yield: suspend (StringValue) -> Unit,
+    ): Unit = executeEnumerate(
+        name = "enumerateAlbumNodeUids",
+        callback = UnitResponseCallback,
+        yield = yield,
+        parser = StringValue::parseFrom,
+        coroutineScopeProvider = { coroutineScope }
+    ) {
+        drivePhotosClientEnumerateAlbumNodeUids = request
+    }
+
+    suspend fun enumerateAlbum(
+        coroutineScope: CoroutineScope,
+        request: ProtonDriveSdk.DrivePhotosClientEnumerateAlbumRequest,
+        yield: suspend (ProtonDriveSdk.AlbumItem) -> Unit,
+    ): Unit = executeEnumerate(
+        name = "enumerateAlbum",
+        callback = UnitResponseCallback,
+        yield = yield,
+        parser = ProtonDriveSdk.AlbumItem::parseFrom,
+        coroutineScopeProvider = { coroutineScope },
+    ) {
+        drivePhotosClientEnumerateAlbum = request
+    }
+
     suspend fun getNode(
         request: ProtonDriveSdk.DrivePhotosClientGetNodeRequest,
     ): ProtonDriveSdk.Node? =
@@ -115,6 +143,13 @@ class JniProtonPhotosClient internal constructor() : JniBaseProtonDriveSdk() {
     ): ProtonDriveSdk.NodeResultListResponse =
         executeOnce("trashNodes", NodeResultListResponseConverter().asCallback) {
             drivePhotosClientTrashNodes = request
+        }
+
+    suspend fun updatePhotos(
+        request: ProtonDriveSdk.DrivePhotosClientUpdatePhotosRequest,
+    ): ProtonDriveSdk.NodeResultListResponse =
+        executeOnce("updatePhotos", NodeResultListResponseConverter().asCallback) {
+            drivePhotosClientUpdatePhotos = request
         }
 
     suspend fun deleteNodes(
@@ -163,6 +198,20 @@ class JniProtonPhotosClient internal constructor() : JniBaseProtonDriveSdk() {
             coroutineScopeProvider = { coroutineScope }
         ) {
             drivePhotosClientEnumerateSharedNodeUids = request
+        }
+
+    suspend fun enumerateSharedWithMeNodeUids(
+        coroutineScope: ProducerScope<NodeUid>,
+        request: ProtonDriveSdk.DrivePhotosClientEnumerateSharedWithMeNodeUidsRequest,
+        yield: suspend (StringValue) -> Unit,
+    ): Unit = executeEnumerate(
+            name = "enumerateSharedWithMeNodeUids",
+            callback = UnitResponseCallback,
+            yield = yield,
+            parser = StringValue::parseFrom,
+            coroutineScopeProvider = { coroutineScope }
+        ) {
+            drivePhotosClientEnumerateSharedWithMeNodeUids = request
         }
 
     suspend fun leaveSharedNode(

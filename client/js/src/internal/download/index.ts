@@ -40,10 +40,10 @@ export function initDownloadModule(
                 throw new ValidationError(c('Error').t`Cannot download a folder`);
             }
             if (!nodeKey.contentKeyPacketSessionKey) {
-                throw new ValidationError(c('Error').t`File has no content key`);
+                throw new ValidationError(c('Error').t`This file has missing crypto material`);
             }
-            if (!node.activeRevision?.ok || !node.activeRevision.value) {
-                throw new ValidationError(c('Error').t`File has no active revision`);
+            if (!node.activeRevision) {
+                throw new ValidationError(c('Error').t`This file has no version available to download`);
             }
         } catch (error: unknown) {
             queue.releaseCapacity();
@@ -61,7 +61,7 @@ export function initDownloadModule(
                 key: nodeKey.key,
                 contentKeyPacketSessionKey: nodeKey.contentKeyPacketSessionKey,
             },
-            node.activeRevision.value,
+            node.activeRevision,
             signal,
             onFinish,
             ignoreManifestVerification,
@@ -83,7 +83,7 @@ export function initDownloadModule(
                 throw new ValidationError(c('Error').t`Cannot download a folder`);
             }
             if (!nodeKey.contentKeyPacketSessionKey) {
-                throw new ValidationError(c('Error').t`File has no content key`);
+                throw new ValidationError(c('Error').t`This file has missing crypto material`);
             }
         } catch (error: unknown) {
             queue.releaseCapacity();
