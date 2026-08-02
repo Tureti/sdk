@@ -83,6 +83,12 @@ After a successful login, the CLI stores the session in the **OS secret store** 
 
 On upload, the CLI generates WebP thumbnails for common image types (JPEG, PNG, GIF, BMP, TIFF, WebP) using [Bun's built-in image API](https://bun.com/docs/runtime/image) (requires Bun 1.3.14+). Use **`--skip-thumbnails`** (**`-t`**) on `filesystem upload` when you do not need previews or your system doesn't support Bun's image API.
 
+## Re-uploading an existing tree
+
+`filesystem upload` lists the destination folders to find out which items are already there, instead of attempting every write and letting the server reject it. Re-running an upload over a tree that is already backed up is therefore cheap: with **`--file-conflict-strategy skip`** (**`-f skip`**) an item that already exists is skipped without reading the local file, generating thumbnails or making a single API call, and with **`--folder-conflict-strategy merge`** (**`-d merge`**) an existing folder is merged into without a round trip.
+
+Only folders that already exist are listed — a folder created during the upload is known to be empty. Use **`--no-remote-index`** to turn the listing off; that is only worth doing when uploading a handful of items into a remote folder that holds far more.
+
 ## Environment variables
 
 | Variable | Purpose | Default |

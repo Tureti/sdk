@@ -1,6 +1,7 @@
 import {
     Logger,
     NodeEntity,
+    NodeType,
     NodeWithSameNameExistsValidationError,
     type ProtonDriveClient,
     Thumbnail,
@@ -13,6 +14,7 @@ import type { CliMetrics } from '../../telemetry';
 import { getSha1 } from './digest';
 import { generateThumbnails } from './generateThumbnails';
 import { getLocalFileMediaType } from './mediaType';
+import { RemoteFolderIndex } from './remoteFolderIndex';
 import { ConflictChoice, ConflictTargetKind, TransferConflictResolver } from './transferConflictResolver';
 import { createTransferProgress, TransferProgressInterface, TransferProgressItem } from './transferProgress';
 import { type QueueItemDirectory, type QueueItemFile, UploadQueue } from './transferQueue';
@@ -61,6 +63,7 @@ type UploadContext = {
     progress?: TransferProgressInterface;
     uploadQueue: UploadQueue;
     conflictResolver: TransferConflictResolver;
+    remoteIndex?: RemoteFolderIndex;
     metrics?: CliMetrics;
 };
 
@@ -68,7 +71,7 @@ export class CommandFileSystemUpload implements Command {
     group = 'filesystem';
     name = 'upload';
     help =
-        'Uploads files and folders. It prompts for conflict resolution unless a strategy option is set. Files with the same content are automatically skipped.';
+        'Uploads files and folders. It prompts for conflict resolution unless a strategy option is set. Files with the same content are automatically skipped. Items that already exist are detected by listing the destination folders, making re-uploads of an existing tree cheap.';
     args = ['localPath...', 'parentPath'];
     options: Options = {
         'conflict-strategy': {
@@ -98,6 +101,11 @@ export class CommandFileSystemUpload implements Command {
             default: false,
             help: 'Skip generating thumbnails.',
         },
+        'no-remote-index': {
+            type: 'boolean',
+            default: false,
+            help: 'Do not list destination folders to detect existing items upfront. Slower when re-uploading an existing tree, but avoids listing a folder holding far more items than are uploaded into it.',
+        },
     };
 
     async action({
@@ -112,6 +120,7 @@ export class CommandFileSystemUpload implements Command {
             'file-conflict-strategy': fileConflictStrategy,
             'folder-conflict-strategy': folderConflictStrategy,
             'skip-thumbnails': skipThumbnails,
+            'no-remote-index': noRemoteIndex,
         },
     }: ActionArgs) {
         if (args.length < 2) {
@@ -164,6 +173,7 @@ export class CommandFileSystemUpload implements Command {
             progress,
             uploadQueue,
             conflictResolver,
+            remoteIndex: noRemoteIndex ? undefined : new RemoteFolderIndex(sdk, logger),
             metrics,
         };
 
@@ -187,8 +197,24 @@ export class CommandFileSystemUpload implements Command {
         let name = item.baseName;
 
         while (true) {
+            // Resolving the conflict from the listing avoids a create that is
+            // known to fail plus the metadata fetch of the existing folder.
+            const indexedNode = await ctx.remoteIndex?.find(item.parentNode, name);
+            if (indexedNode?.type === NodeType.Folder) {
+                const resolved = await this.resolveFolderConflict(ctx, item, indexedNode, name);
+                if (resolved.done) {
+                    return resolved.result;
+                }
+                name = resolved.name;
+                continue;
+            }
+
             try {
                 const createdFolder = await ctx.sdk.createFolder(item.parentNode, name);
+                ctx.remoteIndex?.add(item.parentNode.uid, createdFolder);
+                // A folder we just created has no children, so it never needs
+                // to be listed.
+                ctx.remoteIndex?.markEmpty(createdFolder.uid);
                 return { node: createdFolder };
             } catch (error: unknown) {
                 if (!(error instanceof NodeWithSameNameExistsValidationError)) {
@@ -199,24 +225,47 @@ export class CommandFileSystemUpload implements Command {
                     throw error;
                 }
 
+                // The listing did not know about this node, so it is out of
+                // date for the whole folder.
+                ctx.remoteIndex?.invalidate(item.parentNode.uid);
+
                 const existingNode = await ctx.sdk.getNode(existingNodeUid);
 
-                const choice = await ctx.conflictResolver.resolve(item.baseName, ConflictTargetKind.Folder);
-                switch (choice) {
-                    case ConflictChoice.Skip:
-                        return;
-                    case ConflictChoice.Merge:
-                        return { node: existingNode };
-                    case ConflictChoice.Replace:
-                        await this.trashConflictingNode(ctx, existingNode);
-                        continue;
-                    case ConflictChoice.KeepBoth:
-                        name = await ctx.sdk.getAvailableName(item.parentNode, item.baseName);
-                        continue;
-                    default:
-                        throw new ValidationError(`Unexpected conflict choice: ${choice}`);
+                const resolved = await this.resolveFolderConflict(ctx, item, existingNode, name);
+                if (resolved.done) {
+                    return resolved.result;
                 }
+                name = resolved.name;
             }
+        }
+    }
+
+    /**
+     * Applies the folder conflict strategy to an existing remote folder.
+     *
+     * Returns either the outcome of the upload, or the name to retry the
+     * creation with.
+     */
+    private async resolveFolderConflict(
+        ctx: UploadContext,
+        item: QueueItemDirectory<{ parentNode: NodeEntity }>,
+        existingNode: NodeEntity,
+        name: string,
+    ): Promise<{ done: true; result: { node: NodeEntity } | undefined } | { done: false; name: string }> {
+        const choice = await ctx.conflictResolver.resolve(item.baseName, ConflictTargetKind.Folder);
+        switch (choice) {
+            case ConflictChoice.Skip:
+                return { done: true, result: undefined };
+            case ConflictChoice.Merge:
+                return { done: true, result: { node: existingNode } };
+            case ConflictChoice.Replace:
+                await this.trashConflictingNode(ctx, existingNode);
+                ctx.remoteIndex?.remove(item.parentNode.uid, name);
+                return { done: false, name };
+            case ConflictChoice.KeepBoth:
+                return { done: false, name: await ctx.sdk.getAvailableName(item.parentNode, item.baseName) };
+            default:
+                throw new ValidationError(`Unexpected conflict choice: ${choice}`);
         }
     }
 
@@ -224,14 +273,53 @@ export class CommandFileSystemUpload implements Command {
         ctx: UploadContext,
         item: QueueItemFile<{ parentNode: NodeEntity }>,
     ): Promise<number | false> {
-        const { file, metadata, thumbnails } = await getFileMetadata(
-            ctx,
-            item,
-            getLocalFileMediaType(ctx.logger, item.localPath),
-        );
+        const mediaType = getLocalFileMediaType(ctx.logger, item.localPath);
 
         let name = item.baseName;
         let newRevisionForNodeUid: string | undefined;
+
+        // Reading the local file is the expensive part, so it is deferred
+        // until it is known that the upload can actually happen.
+        let content: Awaited<ReturnType<typeof getFileContentMetadata>> | undefined;
+        const getContent = async () => (content ??= await getFileContentMetadata(ctx, item, mediaType));
+
+        // Resolving the conflict from the destination listing avoids an upload
+        // that is known to be rejected plus the metadata fetch of the existing
+        // file. For the skip strategy it avoids reading the local file too.
+        const indexedNode = await ctx.remoteIndex?.find(item.parentNode, name);
+        if (indexedNode?.type === NodeType.File) {
+            if (ctx.conflictResolver.getGlobalStrategy(ConflictTargetKind.File) === ConflictChoice.Skip) {
+                return false;
+            }
+
+            const { metadata } = await getContent();
+            if (indexedNode.activeRevision?.claimedDigests?.sha1 === metadata.expectedSha1) {
+                return false;
+            }
+
+            const choice = await ctx.conflictResolver.resolve(item.baseName, ConflictTargetKind.File);
+            switch (choice) {
+                case ConflictChoice.Skip:
+                    return false;
+                case ConflictChoice.Merge:
+                    newRevisionForNodeUid = indexedNode.uid;
+                    break;
+                case ConflictChoice.Replace:
+                    await this.trashConflictingNode(ctx, indexedNode);
+                    ctx.remoteIndex?.remove(item.parentNode.uid, name);
+                    break;
+                case ConflictChoice.KeepBoth:
+                    name = await ctx.sdk.getAvailableName(item.parentNode, item.baseName);
+                    break;
+                default:
+                    throw new ValidationError(`Unexpected conflict choice: ${choice}`);
+            }
+        }
+
+        const { file, metadata } = await getContent();
+        // Thumbnails are generated only once it is known the content is going
+        // to be uploaded, so duplicates never pay for them.
+        const thumbnails = await getFileThumbnails(ctx, item.localPath, metadata.mediaType);
 
         while (true) {
             const progressTracker = ctx.progress?.trackItem(item.baseName, file.size);
@@ -258,6 +346,11 @@ export class CommandFileSystemUpload implements Command {
                 if (!existingNodeUid) {
                     throw error;
                 }
+
+                // The listing did not know about this node, so it is out of
+                // date for the whole folder.
+                ctx.remoteIndex?.invalidate(item.parentNode.uid);
+
                 const existingNode = await ctx.sdk.getNode(existingNodeUid);
 
                 // If the existing node is already the same file, automatically skip the upload.
@@ -297,9 +390,15 @@ export class CommandFileSystemUpload implements Command {
     }
 }
 
-export async function getFileMetadata(
+/**
+ * Reads the local file to produce the metadata needed to upload it.
+ *
+ * This hashes the whole file, so it is kept separate from thumbnail
+ * generation to let callers decide the content is not going to be uploaded
+ * before paying for either.
+ */
+export async function getFileContentMetadata(
     ctx: {
-        skipThumbnails: boolean;
         logger: Logger;
     },
     item: QueueItemFile<{ parentNode: NodeEntity }>,
@@ -317,19 +416,46 @@ export async function getFileMetadata(
         ...(await additionalMetadataCallback(file)),
     };
 
-    let thumbnails: Thumbnail[] = [];
-    if (!ctx.skipThumbnails) {
-        try {
-            thumbnails = await generateThumbnails(metadata.mediaType || '', item.localPath);
-        } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : String(error);
-            throw new ValidationError(
-                `Failed to generate thumbnails (use --skip-thumbnails to upload without thumbnails): ${message}`,
-                undefined,
-                { cause: error },
-            );
-        }
+    return {
+        file,
+        metadata,
+    };
+}
+
+export async function getFileThumbnails(
+    ctx: {
+        skipThumbnails: boolean;
+    },
+    localPath: string,
+    mediaType: string | undefined,
+): Promise<Thumbnail[]> {
+    if (ctx.skipThumbnails) {
+        return [];
     }
+    try {
+        return await generateThumbnails(mediaType || '', localPath);
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new ValidationError(
+            `Failed to generate thumbnails (use --skip-thumbnails to upload without thumbnails): ${message}`,
+            undefined,
+            { cause: error },
+        );
+    }
+}
+
+export async function getFileMetadata(
+    ctx: {
+        skipThumbnails: boolean;
+        logger: Logger;
+    },
+    item: QueueItemFile<{ parentNode: NodeEntity }>,
+    mediaType: string,
+    additionalMetadataCallback = async (file: Bun.BunFile) =>
+        generateAdditionalNodeMetadata(file, mediaType, undefined, ctx.logger),
+) {
+    const { file, metadata } = await getFileContentMetadata(ctx, item, mediaType, additionalMetadataCallback);
+    const thumbnails = await getFileThumbnails(ctx, item.localPath, metadata.mediaType);
 
     return {
         file,

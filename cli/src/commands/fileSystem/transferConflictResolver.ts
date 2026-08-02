@@ -53,8 +53,19 @@ export class TransferConflictResolver {
         this.disableInteractiveResolution = options.disableInteractiveResolution || false;
     }
 
+    /**
+     * Returns the strategy that `resolve` would apply without prompting, or
+     * `undefined` when the conflict would have to be resolved interactively.
+     *
+     * Lets callers avoid expensive work for conflicts whose outcome is
+     * already known.
+     */
+    getGlobalStrategy(kind: ConflictTargetKind): ConflictChoice | undefined {
+        return kind === ConflictTargetKind.File ? this.globalFileStrategy : this.globalFolderStrategy;
+    }
+
     async resolve(name: string, kind: ConflictTargetKind): Promise<ConflictChoice> {
-        const global = kind === ConflictTargetKind.File ? this.globalFileStrategy : this.globalFolderStrategy;
+        const global = this.getGlobalStrategy(kind);
         if (global !== undefined) {
             return global;
         }
