@@ -9,7 +9,6 @@ using Proton.Drive.Sdk.Nodes.Download;
 using Proton.Drive.Sdk.Nodes.Upload;
 using Proton.Drive.Sdk.Nodes.Upload.Verification;
 using Proton.Drive.Sdk.Volumes;
-using Proton.Sdk;
 using Proton.Sdk.Api;
 using Proton.Sdk.Caching;
 using Proton.Sdk.Configuration;
@@ -156,17 +155,17 @@ public sealed class ProtonPhotosClient
         return Shares.SharingOperations.LeaveSharedNodeAsync(DriveClient, nodeUid, cancellationToken);
     }
 
-    public ValueTask<IReadOnlyDictionary<NodeUid, Result<Exception>>> TrashNodesAsync(IEnumerable<NodeUid> uids, CancellationToken cancellationToken)
+    public IAsyncEnumerable<NodeActionResult> TrashNodesAsync(IEnumerable<NodeUid> uids, CancellationToken cancellationToken)
     {
         return NodeOperations.TrashAsync(DriveClient, uids, cancellationToken);
     }
 
-    public ValueTask<IReadOnlyDictionary<NodeUid, Result<Exception>>> DeleteNodesAsync(IEnumerable<NodeUid> uids, CancellationToken cancellationToken)
+    public IAsyncEnumerable<NodeActionResult> DeleteNodesAsync(IEnumerable<NodeUid> uids, CancellationToken cancellationToken)
     {
         return NodeOperations.DeleteFromTrashAsync(DriveClient, uids, cancellationToken);
     }
 
-    public ValueTask<IReadOnlyDictionary<NodeUid, Result<Exception>>> RestoreNodesAsync(IEnumerable<NodeUid> uids, CancellationToken cancellationToken)
+    public IAsyncEnumerable<NodeActionResult> RestoreNodesAsync(IEnumerable<NodeUid> uids, CancellationToken cancellationToken)
     {
         return NodeOperations.RestoreFromTrashAsync(DriveClient, uids, cancellationToken);
     }
@@ -205,7 +204,7 @@ public sealed class ProtonPhotosClient
     /// Favoriting a photo not yet in the user's timeline (in an album, or shared from another volume) re-encrypts it
     /// and its related photos for the timeline root, so the server attaches it to the timeline while favoriting it.
     /// </remarks>
-    public ValueTask<IReadOnlyDictionary<NodeUid, Result<Exception>>> UpdatePhotosAsync(
+    public IAsyncEnumerable<PhotoUpdateResult> UpdatePhotosAsync(
         IReadOnlyList<PhotoTagsUpdate> updates,
         CancellationToken cancellationToken)
     {
