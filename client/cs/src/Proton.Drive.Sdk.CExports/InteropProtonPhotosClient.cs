@@ -68,8 +68,9 @@ internal static class InteropProtonPhotosClient
         };
     }
 
-    public static async ValueTask<IMessage> HandleUpdatePhotosAsync(DrivePhotosClientUpdatePhotosRequest request)
+    public static async ValueTask<IMessage?> HandleUpdatePhotosAsync(DrivePhotosClientUpdatePhotosRequest request, nint bindingsHandle)
     {
+        var yieldAction = new InteropAction<nint, InteropArray<byte>>(request.YieldAction);
         var cancellationToken = Interop.GetCancellationToken(request.CancellationTokenSourceHandle);
 
         var client = Interop.GetFromHandle<ProtonPhotosClient>(request.ClientHandle);
@@ -81,48 +82,63 @@ internal static class InteropProtonPhotosClient
             TagsToRemove = update.TagsToRemove.Select(tag => (Nodes.PhotoTag)tag).ToList(),
         }).ToList();
 
-        var results = await client.UpdatePhotosAsync(updates, cancellationToken).ConfigureAwait(false);
+        await foreach (var result in client.UpdatePhotosAsync(updates, cancellationToken).ConfigureAwait(false))
+        {
+            yieldAction.InvokeWithMessage(bindingsHandle, result.ToInterop());
+        }
 
-        return results.ToInterop();
+        return null;
     }
 
-    public static async ValueTask<IMessage> HandleTrashNodesAsync(DrivePhotosClientTrashNodesRequest request)
+    public static async ValueTask<IMessage?> HandleTrashNodesAsync(DrivePhotosClientTrashNodesRequest request, nint bindingsHandle)
     {
+        var yieldAction = new InteropAction<nint, InteropArray<byte>>(request.YieldAction);
         var cancellationToken = Interop.GetCancellationToken(request.CancellationTokenSourceHandle);
 
         var client = Interop.GetFromHandle<ProtonPhotosClient>(request.ClientHandle);
 
-        var results = await client.TrashNodesAsync(
-            request.NodeUids.Select(NodeUid.Parse),
-            cancellationToken).ConfigureAwait(false);
+        var results = client.TrashNodesAsync(request.NodeUids.Select(NodeUid.Parse), cancellationToken);
 
-        return results.ToInterop();
+        await foreach (var result in results.ConfigureAwait(false))
+        {
+            yieldAction.InvokeWithMessage(bindingsHandle, result.ToInterop());
+        }
+
+        return null;
     }
 
-    public static async ValueTask<IMessage> HandleDeleteNodesAsync(DrivePhotosClientDeleteNodesRequest request)
+    public static async ValueTask<IMessage?> HandleDeleteNodesAsync(DrivePhotosClientDeleteNodesRequest request, nint bindingsHandle)
     {
+        var yieldAction = new InteropAction<nint, InteropArray<byte>>(request.YieldAction);
         var cancellationToken = Interop.GetCancellationToken(request.CancellationTokenSourceHandle);
 
         var client = Interop.GetFromHandle<ProtonPhotosClient>(request.ClientHandle);
 
-        var results = await client.DeleteNodesAsync(
-            request.NodeUids.Select(NodeUid.Parse),
-            cancellationToken).ConfigureAwait(false);
+        var results = client.DeleteNodesAsync(request.NodeUids.Select(NodeUid.Parse), cancellationToken);
 
-        return results.ToInterop();
+        await foreach (var result in results.ConfigureAwait(false))
+        {
+            yieldAction.InvokeWithMessage(bindingsHandle, result.ToInterop());
+        }
+
+        return null;
     }
 
-    public static async ValueTask<IMessage> HandleRestoreNodesAsync(DrivePhotosClientRestoreNodesRequest request)
+    public static async ValueTask<IMessage?> HandleRestoreNodesAsync(DrivePhotosClientRestoreNodesRequest request, nint bindingsHandle)
     {
+        var yieldAction = new InteropAction<nint, InteropArray<byte>>(request.YieldAction);
         var cancellationToken = Interop.GetCancellationToken(request.CancellationTokenSourceHandle);
 
         var client = Interop.GetFromHandle<ProtonPhotosClient>(request.ClientHandle);
 
-        var results = await client.RestoreNodesAsync(
-            request.NodeUids.Select(NodeUid.Parse),
-            cancellationToken).ConfigureAwait(false);
+        var results = client.RestoreNodesAsync(request.NodeUids.Select(NodeUid.Parse), cancellationToken);
 
-        return results.ToInterop();
+        await foreach (var result in results.ConfigureAwait(false))
+        {
+            yieldAction.InvokeWithMessage(bindingsHandle, result.ToInterop());
+        }
+
+        return null;
     }
 
     public static async ValueTask<IMessage?> HandleEnumerateTrashAsync(DrivePhotosClientEnumerateTrashRequest request, nint bindingsHandle)
