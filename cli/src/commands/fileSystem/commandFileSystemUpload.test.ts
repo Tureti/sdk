@@ -14,7 +14,7 @@ import { CommandFileSystemUpload, getFileMetadata } from './commandFileSystemUpl
 import { getSha1 } from './digest';
 import { generateThumbnails } from './generateThumbnails';
 import type { RemoteFolderIndex } from './remoteFolderIndex';
-import { TransferConflictResolver } from './transferConflictResolver';
+import { ConflictChoice, TransferConflictResolver } from './transferConflictResolver';
 import type { QueueItemDirectory, QueueItemFile } from './transferQueue';
 
 const getSha1Mock = getSha1 as jest.MockedFunction<typeof getSha1>;
@@ -209,6 +209,18 @@ describe('upload with the remote folder index', () => {
             skipThumbnails: false,
             uploadQueue: undefined,
             conflictResolver: new TransferConflictResolver(logger, {
+                fileStrategyChoices: [
+                    ConflictChoice.CreateNewRevision,
+                    ConflictChoice.Rename,
+                    ConflictChoice.TrashRemote,
+                    ConflictChoice.Skip,
+                ],
+                folderStrategyChoices: [
+                    ConflictChoice.Merge,
+                    ConflictChoice.Rename,
+                    ConflictChoice.TrashRemote,
+                    ConflictChoice.Skip,
+                ],
                 forcedFileStrategy: overrides.fileStrategy,
                 forcedFolderStrategy: overrides.folderStrategy,
                 disableInteractiveResolution: true,
@@ -282,7 +294,7 @@ describe('upload with the remote folder index', () => {
         it('skips an indexed file with identical content before generating thumbnails', async () => {
             remoteIndex.find.mockResolvedValue(mockFileNode('upload.txt', 'n1', 'localsha1'));
 
-            await expect(uploadFile(makeCtx({ fileStrategy: 'merge' }), fileItem)).resolves.toBe(false);
+            await expect(uploadFile(makeCtx({ fileStrategy: 'create-new-revision' }), fileItem)).resolves.toBe(false);
 
             expect(getSha1Mock).toHaveBeenCalledWith(fileItem.localPath);
             expect(generateThumbnailsMock).not.toHaveBeenCalled();
@@ -294,7 +306,7 @@ describe('upload with the remote folder index', () => {
             remoteIndex.find.mockResolvedValue(mockFileNode('upload.txt', 'n1', 'remotesha1'));
             mockUploader();
 
-            await expect(uploadFile(makeCtx({ fileStrategy: 'merge' }), fileItem)).resolves.toBe(42);
+            await expect(uploadFile(makeCtx({ fileStrategy: 'create-new-revision' }), fileItem)).resolves.toBe(42);
 
             expect(sdk.getFileRevisionUploader).toHaveBeenCalledWith('n1', expect.anything());
             expect(sdk.getFileUploader).not.toHaveBeenCalled();
@@ -378,11 +390,11 @@ describe('upload with the remote folder index', () => {
             expect(sdk.createFolder).toHaveBeenCalledWith(parentNode, 'photos');
         });
 
-        it('creates under an available name for the keep-both strategy', async () => {
+        it('creates under an available name for the rename strategy', async () => {
             remoteIndex.find.mockResolvedValueOnce(mockFolderNode('photos', 'n1')).mockResolvedValue(undefined);
             sdk.getAvailableName.mockResolvedValue('photos (1)');
 
-            await createFolder(makeCtx({ folderStrategy: 'keep-both' }), directoryItem);
+            await createFolder(makeCtx({ folderStrategy: 'rename' }), directoryItem);
 
             expect(sdk.getAvailableName).toHaveBeenCalledWith(parentNode, 'photos');
             expect(sdk.createFolder).toHaveBeenCalledWith(parentNode, 'photos (1)');
